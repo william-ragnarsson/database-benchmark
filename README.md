@@ -304,6 +304,7 @@ After a code change, rebuild just the website with `docker compose up --build -d
 | `app/src/client/` | the website: the Database, Run and History pages |
 | `app/src/client/demo/` | the static demo: replaying the recordings, and making rows in the browser |
 | `app/scripts/record-demo.ts` | records the static demo from a running stack |
+| `app/scripts/og-card.html` | the link preview image, `app/src/client/public/og.png`, and how to render it again |
 | `db/clickhouse/` | ClickHouse's low-footprint config and its read-only user |
 
 The generator is seeded, so every machine gets the same rows. If you change what it produces, bump `GENERATOR_VERSION` in `generator.ts`. Existing data then shows as out of date, and the Database page asks you to generate it again.
