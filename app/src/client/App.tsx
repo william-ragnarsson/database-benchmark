@@ -18,12 +18,15 @@ const BUSY_TEXT: Record<Exclude<JobKind, 'browse'>, string> = {
   explain: 'A query plan is being read in another tab.',
 };
 
-function otherTabBusy(status: Status): string | null {
-  return status.busy && status.busy.kind !== 'browse' ? BUSY_TEXT[status.busy.kind] : null;
+// ownRun: this tab's run is going or has just ended, so a "run" busy from the poll is its own.
+function otherTabBusy(status: Status, ownRun: boolean): string | null {
+  const kind = status.busy?.kind;
+  if (!kind || kind === 'browse' || (kind === 'run' && ownRun)) return null;
+  return BUSY_TEXT[kind];
 }
 
 // Why Run can't start right now, or null if it can.
-function runBlocked(status: Status): string | null {
+function runBlocked(status: Status, ownRun: boolean): string | null {
   switch (status.state) {
     case 'starting':
       return 'The databases are starting.';
@@ -38,30 +41,37 @@ function runBlocked(status: Status): string | null {
     case 'error':
       return 'The data isn’t ready. See the Database page.';
   }
-  return otherTabBusy(status);
+  return otherTabBusy(status, ownRun);
 }
 
 // Why Generate and Delete can't start: they would stop a query that is being timed.
-function dataBlocked(status: Status, running: boolean): string | null {
+function dataBlocked(status: Status, running: boolean, ownRun: boolean): string | null {
   if (running) return 'A query is being timed. Generate and Delete are back when it finishes.';
   const busy = status.busy?.kind;
-  return busy === 'run' || busy === 'suite' || busy === 'explain' ? otherTabBusy(status) : null;
+  return busy === 'run' || busy === 'suite' || busy === 'explain' ? otherTabBusy(status, ownRun) : null;
 }
 
 export function App() {
   const { status, error, refresh } = useStatus();
   const route = useRoute();
   const [running, setRunningState] = useState(false);
+  // From the end of a run until the status after it arrives.
+  const [settling, setSettling] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
 
   // Re-read the status when a run ends, so a stale "busy" from the poll clears at once.
   const setRunning = useCallback(
     (next: boolean) => {
       setRunningState(next);
-      if (!next) refresh();
+      if (!next) {
+        setSettling(true);
+        refresh();
+      }
     },
     [refresh],
   );
+  useEffect(() => setSettling(false), [status]);
+  const ownRun = running || settling;
 
   const onFinished = useCallback((result: RunResult, info: HistoryInfo) => {
     setHistory((current) => addHistory(result, info, current));
@@ -122,12 +132,12 @@ export function App() {
           </div>
         )}
         <div {...page('data')}>
-          <DatabasePage status={status} refresh={refresh} blocked={dataBlocked(status, running)} active={route === 'data'} />
+          <DatabasePage status={status} refresh={refresh} blocked={dataBlocked(status, running, ownRun)} active={route === 'data'} />
         </div>
         <div {...page('run')}>
           <RunPage
             status={status}
-            blocked={runBlocked(status)}
+            blocked={runBlocked(status, ownRun)}
             running={running}
             setRunning={setRunning}
             onFinished={onFinished}
