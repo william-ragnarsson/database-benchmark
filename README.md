@@ -65,7 +65,7 @@ On Linux, Podman runs without a VM. Install `docker-compose` or `podman-compose`
   Ready → http://localhost:8080
   ```
 
-- **Pick a size** on the Database page and press Generate. Standard takes about 8 seconds.
+- **Generate the data first.** The app opens on Run. Go to Database, pick a size and press Generate. Standard takes about 8 seconds.
 - **The data is kept between restarts.** Stop the app with Ctrl+C, or with `docker compose down`. The next `up` starts where you left off.
 - **To run it in the background,** add `-d`. Stop it later with `docker compose down`.
 - **If port 8080 is already in use,** copy `.env.example` to `.env` and change `WEB_PORT`.

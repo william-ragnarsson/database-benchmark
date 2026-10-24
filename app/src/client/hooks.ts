@@ -70,10 +70,11 @@ const ROUTES: Route[] = ['data', 'run', 'history'];
 
 function readRoute(): Route {
   const r = location.hash.replace(/^#\/?/, '');
-  return ROUTES.includes(r as Route) ? (r as Route) : 'data';
+  return ROUTES.includes(r as Route) ? (r as Route) : 'run';
 }
 
 // The page lives in the URL hash (#/data, #/run, #/history), so Back and reload work.
+// With no hash, the app opens on Run.
 // Each page remembers how far down it was scrolled. The browser's own restore is off: on
 // Back it scrolls before hashchange fires, so the page being left would save the wrong spot.
 if (typeof history !== 'undefined' && 'scrollRestoration' in history) history.scrollRestoration = 'manual';
