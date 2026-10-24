@@ -1,12 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: 'src/client',
   plugins: [react()],
   build: {
     outDir: '../../dist/client',
     emptyOutDir: true,
+    // The demo is one script: no part of it can fail to load later, or be gone after a redeploy.
+    rolldownOptions: mode === 'demo' ? { output: { codeSplitting: false } } : undefined,
   },
   // `npx vite` for UI work, with the API from a running `compose up`.
   server: {
@@ -17,4 +19,4 @@ export default defineConfig({
     root: '.',
     include: ['test/**/*.test.ts'],
   },
-});
+}));

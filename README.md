@@ -10,6 +10,8 @@ Both databases hold the same generated data: realistic-looking users (names, ema
 
 Everything runs in containers on your own machine. Only the website is reachable, and only from your own machine (`127.0.0.1`).
 
+There is also a [static demo](#the-static-demo) that needs no Docker. It replays results recorded on a real stack.
+
 ## Quick start
 
 You need Docker or Podman. Either one works. If you don't have either, see [What are Docker and Compose?](#what-are-docker-and-compose)
@@ -245,6 +247,40 @@ This app doesn't need a login. To stop the prompts, run `brew uninstall docker-c
 
 **Port 8080 is taken.** Copy `.env.example` to `.env` and set `WEB_PORT=8081`, for example.
 
+## The static demo
+
+`npm run build:demo` builds a version of the website that needs no server, for static hosting such as Vercel. It doesn't run queries. It replays real ones:
+
+- **Every query on every size was run once** on a real stack, and each run's progress was saved with its timing. Pressing Run replays it at the pace it happened. Generate and Delete replay their recorded progress too.
+- **The table rows are made in the browser** by the same seeded generator, so they are the rows the databases held. No table data is shipped: the recordings are about 190 KB, or 35 KB compressed.
+- **A line under the header says the results are recorded,** with the date and machine, and points here to run it yourself.
+
+The normal build doesn't include any of this.
+
+**To try it locally:**
+
+```bash
+cd app
+npm install
+npm run build:demo
+npm run preview:demo
+```
+
+Then open http://localhost:4173.
+
+**To put it on Vercel,** import the repository as a new project and deploy. [`vercel.json`](vercel.json) holds the settings: it builds in `app/` and serves `app/dist/demo`. Nothing else needs setting.
+
+**To record it again,** for example after changing a query or the generator, start the stack with `docker compose up --build`, so it runs your current code, and run (Node 22.18 or newer; on Node 23, 23.6 or newer):
+
+```bash
+cd app
+node scripts/record-demo.ts
+```
+
+It generates each size, runs every query on it with 5 timed runs, and writes `app/src/client/demo/recordings/`, plus two files in `app/test/fixtures/` that the tests check the demo against. Commit them together. It takes a few minutes and leaves Standard loaded. If you changed `WEB_PORT`, give the address: `node scripts/record-demo.ts http://localhost:8081`.
+
+`npm test` fails if the recording is out of date (a query or a size changed since, or a query is new), or if the rows made in the browser differ from the ones the stack returned.
+
 ## Development
 
 The website is TypeScript: a Fastify server and a React client, in [`app/`](app/).
@@ -266,6 +302,8 @@ After a code change, rebuild just the website with `docker compose up --build -d
 | `app/src/server/bench/` | the query guard, the run loop and the result comparison |
 | `app/src/shared/templates.ts` | the 13 templates, with Postgres and ClickHouse SQL |
 | `app/src/client/` | the website: the Database, Run and History pages |
+| `app/src/client/demo/` | the static demo: replaying the recordings, and making rows in the browser |
+| `app/scripts/record-demo.ts` | records the static demo from a running stack |
 | `db/clickhouse/` | ClickHouse's low-footprint config and its read-only user |
 
 The generator is seeded, so every machine gets the same rows. If you change what it produces, bump `GENERATOR_VERSION` in `generator.ts`. Existing data then shows as out of date, and the Database page asks you to generate it again.
