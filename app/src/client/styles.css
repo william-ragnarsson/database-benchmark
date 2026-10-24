@@ -164,8 +164,8 @@ select {
   padding: 20px 24px 80px;
 }
 
-/* The engines on the left, the pages in the middle. The side columns are equal, so the
-   nav stays centred. */
+/* The engines on the left, the pages in the middle, and in the demo build its note on the
+   right. The side columns are equal, so the nav stays centred. */
 .top {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -236,6 +236,89 @@ select {
   color: var(--text);
   background: var(--fill);
   font-weight: 500;
+}
+
+/* The demo build's note, top right. The bubble lies over the page, anchored at its top right
+   corner, and grows from the pill into a card. The note's own box keeps the pill's place, so
+   nothing moves. --pill-w is measured (DemoNote.tsx). */
+.demo-note {
+  --open-w: min(360px, calc(100vw - 32px));
+  position: relative;
+  z-index: 10;
+  justify-self: end;
+  width: var(--pill-w, 172px);
+  height: 54px;
+}
+
+.demo-note-bubble {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  grid-template-rows: 52px 0fr;
+  /* auto until measured: no length to animate from, so the first width doesn't slide in. */
+  width: var(--pill-w, auto);
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 27px;
+  box-shadow: var(--shadow-sm), 0 8px 24px rgba(36, 34, 30, 0.05);
+  transition:
+    width 0.24s ease,
+    grid-template-rows 0.24s ease,
+    border-radius 0.24s ease,
+    box-shadow 0.24s ease;
+}
+
+.demo-note[data-open] .demo-note-bubble {
+  width: var(--open-w);
+  grid-template-rows: 52px 1fr;
+  border-radius: 22px;
+  box-shadow: var(--shadow-sm), 0 12px 32px rgba(36, 34, 30, 0.12);
+}
+
+.demo-note-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Inside the bubble, which clips anything outside it. */
+.demo-note-head:focus-visible {
+  outline-offset: -4px;
+}
+
+.demo-note-head svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.demo-note-body {
+  min-height: 0;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.demo-note[data-open] .demo-note-body {
+  opacity: 1;
+  transition-delay: 0.06s;
+}
+
+/* As wide as the open card from the start, so the text doesn't rewrap while it grows. */
+.demo-note-body p {
+  width: calc(var(--open-w) - 2px);
+  padding: 0 18px 16px;
+  font-size: 13.5px;
+  color: var(--muted);
 }
 
 .page {
@@ -1177,6 +1260,23 @@ dialog::backdrop {
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 8px;
+  }
+
+  /* The demo's note takes the nav's place beside the logos, and the nav a full-width row of its own. */
+  .top:has(.demo-note) {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+  }
+
+  .top:has(.demo-note) .nav {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  .top:has(.demo-note) .nav-link {
+    flex: 1;
+    justify-content: center;
   }
 }
 

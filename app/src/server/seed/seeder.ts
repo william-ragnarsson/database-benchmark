@@ -65,11 +65,14 @@ async function deleteAll(progress: SeedProgress): Promise<void> {
 
 // ---- load ----
 
-function* tracked(chunks: Iterable<Chunk>, ep: EngineProgress): Generator<string> {
+// Gives the event loop a turn after each chunk. Without it the streams can pull chunk after chunk
+// in one go, and /api/status went unanswered for over 10 s at a time while Large loaded.
+async function* tracked(chunks: Iterable<Chunk>, ep: EngineProgress): AsyncGenerator<string> {
   for (const c of chunks) {
     ep.rowsDone += c.rows;
     ep.bytesDone += c.text.length;
     yield c.text;
+    await new Promise((resolve) => setImmediate(resolve));
   }
 }
 
@@ -86,7 +89,7 @@ async function loadPg(spec: DatasetSpec, countries: Uint8Array, ep: EngineProgre
     for (const sql of [...PG_TYPES, ...PG_TABLES]) await client.query(sql);
 
     const copy = async (table: string, chunks: Iterable<Chunk>) => {
-      // highWaterMark 1: generate one 50k-row chunk per read, so the event loop stays free.
+      // highWaterMark 1: generate one 50k-row chunk per read, not several ahead.
       const source = Readable.from(tracked(chunks, ep), { objectMode: true, highWaterMark: 1 });
       await pipeline(source, client.query(copyFrom(`COPY ${table} FROM STDIN WITH (FREEZE)`)));
     };

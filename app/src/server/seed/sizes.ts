@@ -57,20 +57,24 @@ let cachedAt = 0;
 let inflight: Promise<Sizes> | null = null;
 
 // Cheap enough to call on every /api/status poll: the queries run at most every 2 s while a
-// job is running and every 5 s otherwise.
+// job is running and every 5 s otherwise. `force` measures again after any measure already
+// running, since that one may have started before what the caller wants measured.
 export async function getSizes(busy: boolean, force = false): Promise<Sizes | null> {
   const maxAge = busy ? 2000 : 5000;
   if (!force && cached && Date.now() - cachedAt < maxAge) return cached;
-  if (!inflight) {
-    inflight = measureSizes()
+  if (!inflight || force) {
+    // One after another, so an older measure never replaces a newer one.
+    const measure: Promise<Sizes> = (inflight ?? Promise.resolve())
+      .then(measureSizes)
       .then((s) => {
         cached = s;
         cachedAt = Date.now();
         return s;
       })
       .finally(() => {
-        inflight = null;
+        if (inflight === measure) inflight = null;
       });
+    inflight = measure;
   }
   try {
     return await inflight;

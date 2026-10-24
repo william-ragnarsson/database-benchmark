@@ -5,12 +5,14 @@
   "description": "Self-hosted speed comparison of Postgres and ClickHouse on identical generated data",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": "^22.18 || >=23.6"
   },
   "scripts": {
     "build": "vite build && esbuild src/server/index.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist/server/index.js",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:demo": "vite build --mode demo --outDir ../../dist/demo",
+    "preview:demo": "vite preview --outDir ../../dist/demo --port 4173 --strictPort"
   },
   "dependencies": {
     "@clickhouse/client": "^1.24.1",

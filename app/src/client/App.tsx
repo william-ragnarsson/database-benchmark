@@ -6,7 +6,11 @@ import { Versus } from './components/Versus';
 import { DatabasePage } from './pages/DatabasePage';
 import { RunPage } from './pages/RunPage';
 import { HistoryPage } from './pages/HistoryPage';
+import { DemoNote as DemoNoteImpl } from './demo/DemoNote';
 import type { JobKind, RunResult, Status } from '../shared/types';
+
+// Only the demo build (see api.ts) says that its results are recorded.
+const DemoNote = import.meta.env.MODE === 'demo' ? DemoNoteImpl : null;
 
 // The server holds one lock for all tabs. A browse read holds it for a few milliseconds, so
 // it isn't worth disabling buttons over.
@@ -122,6 +126,7 @@ export function App() {
       <header className="top">
         <Versus />
         <Nav route={route} />
+        {DemoNote && <DemoNote />}
       </header>
       <main className={`page page-${route}`}>
         {error && (

@@ -38,7 +38,7 @@ async function readJson(res: Response): Promise<unknown> {
   return data;
 }
 
-export const api = {
+const live = {
   status: (signal?: AbortSignal) => request<Status>('GET', '/api/status', undefined, signal),
   seed: (preset: PresetId) => request<{ ok: true }>('POST', '/api/dataset', { preset }),
   deleteAll: () => request<{ ok: true }>('DELETE', '/api/dataset'),
@@ -52,6 +52,19 @@ export const api = {
     ),
   run: (body: RunRequest, onEvent: (e: RunEvent) => void) => streamEvents('/api/run', body, onEvent),
 };
+
+export type Api = typeof live;
+
+// The demo build (vite build --mode demo) has no server: it replays recorded runs instead.
+// The normal build drops this import with the branch below, so it has none of the demo or its
+// recordings; the demo build bundles it into its one script (vite.config.ts).
+function demo(): Api {
+  const real = import('./demo/api').then((m) => m.demoApi);
+  const call = (key: keyof Api) => (...args: unknown[]) => real.then((a) => (a[key] as (...a: unknown[]) => unknown)(...args));
+  return Object.fromEntries(Object.keys(live).map((key) => [key, call(key as keyof Api)])) as unknown as Api;
+}
+
+export const api: Api = import.meta.env.MODE === 'demo' ? demo() : live;
 
 // Posts `body` and calls onEvent for each "data: …" event until the stream ends.
 async function streamEvents<E>(url: string, body: unknown, onEvent: (e: E) => void): Promise<void> {
