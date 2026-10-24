@@ -1,0 +1,67 @@
+<!-- The read-only "reader" user that runs every benchmarked query. -->
+<clickhouse>
+    <profiles>
+        <reader>
+            <readonly>2</readonly>
+
+            <!-- Behave like Postgres where the dialects differ by default. -->
+            <join_use_nulls>1</join_use_nulls>
+            <union_default_mode>DISTINCT</union_default_mode>
+            <except_default_mode>DISTINCT</except_default_mode>
+            <intersect_default_mode>DISTINCT</intersect_default_mode>
+            <prefer_column_name_to_alias>1</prefer_column_name_to_alias>
+            <cast_keep_nullable>1</cast_keep_nullable>
+            <session_timezone>UTC</session_timezone>
+
+            <!-- Fairness and safety. Locked below so a query can't change them. -->
+            <max_threads>4</max_threads>
+            <!-- The default (1 GiB of free server memory per thread) would run every query on one
+                 thread under the 1 GB server cap. Memory stays bounded by max_memory_usage. -->
+            <max_threads_min_free_memory_per_thread>0</max_threads_min_free_memory_per_thread>
+            <max_execution_time>30</max_execution_time>
+            <max_memory_usage>1000000000</max_memory_usage>
+            <max_result_rows>10000</max_result_rows>
+            <!-- A few rows can still be huge (groupArray over every order). -->
+            <max_result_bytes>67108864</max_result_bytes>
+            <use_query_cache>0</use_query_cache>
+            <use_query_condition_cache>0</use_query_condition_cache>
+            <max_temporary_data_on_disk_size_for_user>536870912</max_temporary_data_on_disk_size_for_user>
+            <max_temporary_data_on_disk_size_for_query>536870912</max_temporary_data_on_disk_size_for_query>
+
+            <!-- JIT stays on (the default) but compiles in the uncounted warm-up run. -->
+            <min_count_to_compile_expression>0</min_count_to_compile_expression>
+            <min_count_to_compile_aggregate_expression>0</min_count_to_compile_aggregate_expression>
+
+            <!-- const, not max: 0 means "unlimited" for several of these and would pass a max check. -->
+            <constraints>
+                <readonly><const/></readonly>
+                <max_threads><const/></max_threads>
+                <max_threads_min_free_memory_per_thread><const/></max_threads_min_free_memory_per_thread>
+                <max_execution_time><const/></max_execution_time>
+                <max_memory_usage><const/></max_memory_usage>
+                <max_result_rows><const/></max_result_rows>
+                <max_result_bytes><const/></max_result_bytes>
+                <use_query_cache><const/></use_query_cache>
+                <use_query_condition_cache><const/></use_query_condition_cache>
+                <max_temporary_data_on_disk_size_for_user><const/></max_temporary_data_on_disk_size_for_user>
+                <max_temporary_data_on_disk_size_for_query><const/></max_temporary_data_on_disk_size_for_query>
+            </constraints>
+        </reader>
+    </profiles>
+
+    <users>
+        <reader>
+            <password from_env="CH_READER_PASSWORD"/>
+            <profile>reader</profile>
+            <quota>default</quota>
+            <default_database>bench</default_database>
+            <!-- Only reading the bench tables: no url()/remote() requests, no temporary tables. -->
+            <grants>
+                <query>GRANT SELECT ON bench.*</query>
+            </grants>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+        </reader>
+    </users>
+</clickhouse>

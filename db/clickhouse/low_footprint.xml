@@ -1,0 +1,53 @@
+<!-- Keeps an idle ClickHouse from writing anything to disk on its own, and caps its memory. -->
+<clickhouse>
+    <!-- Log to the console only, where Compose caps it (10 MB × 3), instead of files inside the container. -->
+    <logger>
+        <level>warning</level>
+        <console>1</console>
+        <log remove="1"/>
+        <errorlog remove="1"/>
+    </logger>
+
+    <!-- Half of the container's 2 GB; the same 1 GB cap the reader profile uses per query. -->
+    <max_server_memory_usage_to_ram_ratio>0.5</max_server_memory_usage_to_ram_ratio>
+    <mark_cache_size>536870912</mark_cache_size>
+
+    <!-- At most 512 MB of temporary files for the whole server, whoever writes them. This also
+         covers the HTTP response buffer that wait_end_of_query=1 spills to disk. -->
+    <max_temporary_data_on_disk_size>536870912</max_temporary_data_on_disk_size>
+
+    <!-- DROP TABLE frees disk right away instead of after 8 minutes. -->
+    <database_atomic_delay_before_drop_table_sec>0</database_atomic_delay_before_drop_table_sec>
+
+    <!-- No system log tables. Removing one the server doesn't define is a no-op. -->
+    <query_log remove="1"/>
+    <query_thread_log remove="1"/>
+    <query_views_log remove="1"/>
+    <query_metric_log remove="1"/>
+    <part_log remove="1"/>
+    <trace_log remove="1"/>
+    <text_log remove="1"/>
+    <metric_log remove="1"/>
+    <latency_log remove="1"/>
+    <error_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <asynchronous_insert_log remove="1"/>
+    <opentelemetry_span_log remove="1"/>
+    <crash_log remove="1"/>
+    <session_log remove="1"/>
+    <zookeeper_log remove="1"/>
+    <aggregated_zookeeper_log remove="1"/>
+    <zookeeper_connection_log remove="1"/>
+    <transactions_info_log remove="1"/>
+    <processors_profile_log remove="1"/>
+    <backup_log remove="1"/>
+    <s3queue_log remove="1"/>
+    <azure_queue_log remove="1"/>
+    <blob_storage_log remove="1"/>
+    <filesystem_cache_log remove="1"/>
+    <filesystem_read_prefetches_log remove="1"/>
+    <background_schedule_pool_log remove="1"/>
+    <iceberg_metadata_log remove="1"/>
+    <delta_lake_metadata_log remove="1"/>
+    <dead_letter_queue remove="1"/>
+</clickhouse>
