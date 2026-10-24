@@ -1,0 +1,121 @@
+# Postgres vs ClickHouse – one command: `docker compose up --build` (or `podman compose up --build`).
+# Remove everything again with ./uninstall.sh.
+name: pg-vs-ch
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: docker.io/library/postgres:18-alpine
+    environment:
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-bench}
+      POSTGRES_DB: postgres
+      # C locale = byte-order text sorting like ClickHouse; 1 MB WAL segments instead of 16 MB.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8 --wal-segsize=1"
+    command:
+      - postgres
+      - -c
+      - wal_level=minimal
+      - -c
+      - max_wal_senders=0
+      - -c
+      - min_wal_size=2MB
+      - -c
+      - max_wal_size=64MB
+      # Delete old WAL files at each checkpoint instead of keeping them for reuse.
+      - -c
+      - wal_recycle=off
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=64MB
+      - -c
+      - jit=off
+      - -c
+      - timezone=UTC
+      - -c
+      - max_worker_processes=4
+      - -c
+      - max_logical_replication_workers=0
+      - -c
+      - max_parallel_workers_per_gather=3
+      - -c
+      - max_parallel_workers=4
+    volumes:
+      - pgdata:/var/lib/postgresql
+    shm_size: 1g
+    cpus: 4
+    mem_limit: 2g
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U bench -d postgres"]
+      # Shown by `compose ps`; nothing waits on it. Rare, so checks don't add noise to the timings.
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 120s
+
+  clickhouse:
+    image: docker.io/clickhouse/clickhouse-server:26.8-alpine
+    environment:
+      CLICKHOUSE_USER: bench
+      CLICKHOUSE_PASSWORD: ${CH_PASSWORD:-bench}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "0"
+      CH_READER_PASSWORD: ${CH_READER_PASSWORD:-reader}
+    volumes:
+      - chdata:/var/lib/clickhouse
+      # Mounted one file at a time so the image's own config.d / users.d files stay visible.
+      - ./db/clickhouse/low_footprint.xml:/etc/clickhouse-server/config.d/low_footprint.xml:ro
+      - ./db/clickhouse/reader.xml:/etc/clickhouse-server/users.d/reader.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    cpus: 4
+    mem_limit: 2g
+    logging: *logging
+    healthcheck:
+      # The Alpine image has busybox wget but no curl. Reads the whole reply: --spider hangs up
+      # early, and ClickHouse logs a stack trace for every check.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8123/ping"]
+      # Shown by `compose ps`; nothing waits on it. Rare, so checks don't add noise to the timings.
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 120s
+
+  web:
+    build:
+      context: ./app
+    environment:
+      TZ: UTC
+      WEB_PORT: ${WEB_PORT:-8080}
+      PG_HOST: postgres
+      PG_USER: bench
+      PG_PASSWORD: ${PG_PASSWORD:-bench}
+      PG_READER_PASSWORD: ${PG_READER_PASSWORD:-reader}
+      CH_URL: http://clickhouse:8123
+      CH_USER: bench
+      CH_PASSWORD: ${CH_PASSWORD:-bench}
+      CH_READER_PASSWORD: ${CH_READER_PASSWORD:-reader}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
+    # Not service_healthy: the first healthcheck runs after 30 s, so web would wait that long.
+    # The server retries until both answer and shows "Starting databases…" meanwhile.
+    depends_on:
+      - postgres
+      - clickhouse
+    # Comes back by itself if the server crashes; a clean stop (Ctrl+C, down) stays stopped.
+    restart: on-failure
+    # It holds at most 10,000 rows per engine; this stops a runaway from starving the databases.
+    mem_limit: 1g
+    logging: *logging
+
+volumes:
+  pgdata:
+  chdata:
