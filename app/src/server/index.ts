@@ -85,12 +85,21 @@ let lastSizes: Sizes | null = null;
 
 server.get('/api/status', async (): Promise<Status> => {
   const busy = getBusy();
-  if (appState.progress) updateEta(appState.progress);
   // Sizes are measured with queries of their own, so leave the engines alone while a query is timed.
   const timing = busy && (busy.kind === 'run' || busy.kind === 'suite' || busy.kind === 'explain');
   if (appState.state !== 'starting' && !timing) {
-    lastSizes = await getSizes(busy?.kind === 'seed' || busy?.kind === 'delete');
+    const job = busy?.kind === 'seed' || busy?.kind === 'delete';
+    // During a load the size queries take up to seconds; the progress shouldn't wait for them.
+    if (job && lastSizes) {
+      void getSizes(true).then((s) => {
+        lastSizes = s;
+      });
+    } else {
+      lastSizes = await getSizes(job);
+    }
   }
+  // After the sizes, so the ETA goes with the progress this answer carries.
+  if (appState.progress) updateEta(appState.progress);
   return {
     state: appState.state,
     meta: appState.meta,
