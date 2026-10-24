@@ -1,0 +1,246 @@
+<!doctype html>
+<!--
+  The link preview image, src/client/public/og.png. The times are the Large recordings in
+  src/client/demo/recordings/large.json, so update them here if you record the demo again.
+
+  To render it, from app/, with any Chrome or Chromium:
+    chrome --headless --hide-scrollbars --window-size=1200,630 --screenshot=src/client/public/og.png scripts/og-card.html
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Postgres vs ClickHouse</title>
+    <style>
+      :root {
+        --bg: #f6f4ef;
+        --surface: #fffefb;
+        --fill: #f0ede5;
+        --rule: #e4dfd4;
+        --border: #ddd7ca;
+        --text: #24221e;
+        --text-2: #4a463f;
+        --muted: #6c675d;
+        --pg: #3b6fb6;
+        --pg-ink: #2c5592;
+        --ch: #a87a00;
+        --ch-ink: #836000;
+
+        --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+        padding: 58px 72px 0;
+      }
+
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .versus {
+        display: flex;
+        align-items: center;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 6px;
+        box-shadow: 0 1px 2px rgba(36, 34, 30, 0.06), 0 10px 30px rgba(36, 34, 30, 0.06);
+      }
+
+      .versus-side {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 56px;
+        padding: 0 20px;
+        font-size: 24px;
+        font-weight: 500;
+      }
+
+      .versus-side img {
+        display: block;
+        width: 30px;
+        height: 30px;
+      }
+
+      .versus-ch {
+        border-radius: 5px;
+      }
+
+      .versus-rule {
+        width: 1px;
+        height: 28px;
+        background: var(--border);
+      }
+
+      .url {
+        font-size: 22px;
+        color: var(--muted);
+      }
+
+      h1 {
+        margin: 40px 0 0;
+        font-size: 72px;
+        line-height: 1.05;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+
+      .sub {
+        margin: 14px 0 0;
+        font-size: 29px;
+        color: var(--text-2);
+      }
+
+      .card {
+        margin-top: 40px;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 18px;
+        box-shadow: 0 1px 2px rgba(36, 34, 30, 0.06);
+        padding: 4px 36px;
+      }
+
+      .result {
+        display: grid;
+        grid-template-columns: 330px 1fr;
+        column-gap: 32px;
+        align-items: center;
+        padding: 26px 0;
+      }
+
+      .result + .result {
+        border-top: 1px solid var(--rule);
+      }
+
+      .headline {
+        font-size: 32px;
+        line-height: 1.15;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .query {
+        margin-top: 6px;
+        font-size: 20px;
+        color: var(--muted);
+      }
+
+      .lanes {
+        display: grid;
+        grid-template-columns: 126px 1fr 112px;
+        column-gap: 18px;
+        row-gap: 14px;
+        align-items: center;
+      }
+
+      .lane-name {
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .track {
+        height: 22px;
+        background: var(--fill);
+        border-radius: 5px;
+        overflow: hidden;
+      }
+
+      .fill {
+        height: 100%;
+        min-width: 5px;
+        border-radius: 5px;
+      }
+
+      .lane-val {
+        font-family: var(--mono);
+        font-size: 20px;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .win {
+        font-weight: 700;
+      }
+
+      .pg-ink {
+        color: var(--pg-ink);
+      }
+
+      .ch-ink {
+        color: var(--ch-ink);
+      }
+
+      .pg-bar {
+        background: var(--pg);
+      }
+
+      .ch-bar {
+        background: var(--ch);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <div class="versus">
+        <span class="versus-side"><img src="../src/client/logos/postgres.svg" alt="" />Postgres</span>
+        <span class="versus-rule"></span>
+        <span class="versus-side"><img class="versus-ch" src="../src/client/logos/clickhouse.svg" alt="" />ClickHouse</span>
+      </div>
+      <span class="url">database-benchmark.vercel.app</span>
+    </div>
+
+    <h1>Same SQL, two databases.</h1>
+    <p class="sub">Run a query on both and see how long each one took.</p>
+
+    <div class="card">
+      <!-- Bars are scaled to the slower engine, as on the Run page. -->
+      <div class="result">
+        <div>
+          <div class="headline">ClickHouse <span class="ch-ink">24×</span> faster</div>
+          <div class="query">Running monthly revenue</div>
+        </div>
+        <div class="lanes">
+          <span class="lane-name pg-ink">Postgres</span>
+          <div class="track"><div class="fill pg-bar" style="width: 100%"></div></div>
+          <span class="lane-val">919 ms</span>
+          <span class="lane-name ch-ink">ClickHouse</span>
+          <div class="track"><div class="fill ch-bar" style="width: 4.15%"></div></div>
+          <span class="lane-val win">38 ms</span>
+        </div>
+      </div>
+      <div class="result">
+        <div>
+          <div class="headline">Postgres <span class="pg-ink">38×</span> faster</div>
+          <div class="query">Order #242424</div>
+        </div>
+        <div class="lanes">
+          <span class="lane-name pg-ink">Postgres</span>
+          <div class="track"><div class="fill pg-bar" style="width: 2.62%"></div></div>
+          <span class="lane-val win">0.36 ms</span>
+          <span class="lane-name ch-ink">ClickHouse</span>
+          <div class="track"><div class="fill ch-bar" style="width: 100%"></div></div>
+          <span class="lane-val">13.9 ms</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
