@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { api } from '../api';
+import { Reads } from '../components/Reads';
 import { ENGINE_LABEL, fmtMs, fmtRatio } from '../format';
 import type { HistoryInfo } from '../history';
+import type { Data } from '../scenes';
 import { TEMPLATES, templateSql } from '../../shared/templates';
 import type { Engine, EngineResult, RunResult, Status } from '../../shared/types';
 
@@ -23,23 +25,30 @@ interface Live {
   target: Record<Engine, number | null>;
 }
 
+// A result, with the data it was measured on, so its drawing stays the same if the data changes.
+interface Last {
+  result: RunResult;
+  data: Data | null;
+  baselineMs: Status['baselineMs'];
+}
+
 // Page 2: pick a query, run it on both engines, compare the times.
 export function RunPage({ status, blocked, running, setRunning, onFinished }: Props) {
   const [templateId, setTemplateId] = useState(TEMPLATES[0].id);
-  const [result, setResult] = useState<RunResult | null>(null);
+  const [last, setLast] = useState<Last | null>(null);
   const [live, setLive] = useState<Live | null>(null);
   const [error, setError] = useState<string | null>(null);
   const template = TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0];
   const off = running || !!blocked;
   // The last result only belongs under the query it was run for.
-  const shown = result && result.templateId === templateId ? result : null;
+  const shown = last && last.result.templateId === templateId ? last : null;
 
   const run = async () => {
     const t = template;
     setRunning(true);
     setError(null);
     // A run that fails shows only its error, not the last run's result under it.
-    setResult(null);
+    setLast(null);
     setLive({ done: { pg: 0, ch: 0 }, target: { pg: null, ch: null } });
     let failure: string | null = null;
     try {
@@ -48,7 +57,7 @@ export function RunPage({ status, blocked, running, setRunning, onFinished }: Pr
         else if (e.type === 'run') setLive((l) => l && { ...l, done: { ...l.done, [e.engine]: e.index + 1 } });
         else if (e.type === 'error') failure = e.message;
         else if (e.type === 'done') {
-          setResult(e.result);
+          setLast({ result: e.result, data: status.meta, baselineMs: status.baselineMs });
           onFinished(e.result, {
             sql: templateSql(t),
             separate: typeof t.sql !== 'string',
@@ -110,7 +119,7 @@ export function RunPage({ status, blocked, running, setRunning, onFinished }: Pr
         {live ? (
           <LiveView title={template.title} live={live} />
         ) : shown ? (
-          <ResultView result={shown} />
+          <ResultView result={shown.result} />
         ) : (
           <>
             <h2 className="visually-hidden" id="result-title">
@@ -120,6 +129,10 @@ export function RunPage({ status, blocked, running, setRunning, onFinished }: Pr
           </>
         )}
       </section>
+
+      {shown && shown.result.engines.pg.status === 'ok' && shown.result.engines.ch.status === 'ok' && (
+        <Reads key={shown.result.runId} {...shown} paused={!!blocked} />
+      )}
     </>
   );
 }

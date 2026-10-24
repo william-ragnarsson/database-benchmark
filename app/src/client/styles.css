@@ -779,6 +779,286 @@ select {
   margin-top: 8px;
 }
 
+/* What each engine reads: a few rows of the table, each cell lit as an engine reads it.
+   Postgres goes row by row, ClickHouse column by column, the way each one stores them. */
+
+.reads-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reads-head h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.reads-toggle {
+  min-height: 36px;
+  margin: -8px -10px -8px 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.reads-toggle:hover:not([aria-disabled='true']) {
+  background: var(--fill);
+  color: var(--text);
+}
+
+.reads-toggle[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.reads-intro {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.reads-panels {
+  display: grid;
+  gap: 24px;
+  margin-top: 18px;
+}
+
+.reads-panel {
+  min-width: 0;
+}
+
+.reads-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 8px;
+}
+
+.reads-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* "starting…" and the time share one spot. */
+.reads-time {
+  display: grid;
+  justify-items: end;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.reads-time > span {
+  grid-area: 1 / 1;
+}
+
+.reads-starting {
+  color: var(--muted);
+  font-weight: 400;
+  animation: reads-out 200ms forwards;
+}
+
+.reads-median {
+  opacity: 0;
+  animation: reads-in 300ms forwards;
+}
+
+/* The columns share the width by how much text they hold; see Table in Reads.tsx. */
+.reads-table {
+  display: grid;
+  margin-top: 8px;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--subtle);
+  font: 12px/18px var(--mono);
+  color: var(--text-2);
+  /* Each cell's side padding, also counted in the short columns' minimum width. */
+  --cell-x: 6px;
+}
+
+/* Postgres's rows sit apart and ClickHouse's columns, so each reads as the unit it stores. */
+.reads-pg {
+  --flash: color-mix(in srgb, var(--pg) 45%, transparent);
+  --needed: color-mix(in srgb, var(--pg) 28%, transparent);
+  --faint: color-mix(in srgb, var(--pg) 10%, transparent);
+  row-gap: 2px;
+}
+
+.reads-ch {
+  --flash: color-mix(in srgb, var(--ch) 45%, transparent);
+  --needed: color-mix(in srgb, var(--ch) 30%, transparent);
+  --faint: color-mix(in srgb, var(--ch) 12%, transparent);
+  column-gap: 4px;
+}
+
+.reads-table > span {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  padding: 2px var(--cell-x);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.reads-th {
+  align-self: end;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.reads-th.used {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* A narrow table wraps its headers at underscores. */
+.reads-narrow .reads-th {
+  white-space: normal;
+}
+
+/* The highlight behind a cell's text. It waits for its inline animation-delay, flashes, then
+   settles: faint if the engine only read it, darker if the query needs it. A cell read before
+   its row's filter is known flashes faint first and turns darker at a second delay. The
+   shorthands need their names: the minifier turns a nameless one into "none". */
+.reads-table i {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transition: opacity 400ms ease;
+}
+
+.reads-table.out i {
+  opacity: 0;
+}
+
+.reads-table i.r {
+  animation: reads-read 450ms ease-out forwards;
+}
+
+.reads-table i.h {
+  animation: reads-hit 450ms ease-out forwards;
+}
+
+.reads-table i.rh {
+  animation:
+    reads-read 450ms ease-out forwards,
+    reads-hit 450ms ease-out forwards;
+}
+
+.reads-table i.r.end {
+  animation: none;
+  background: var(--faint);
+}
+
+.reads-table i.h.end {
+  animation: none;
+  background: var(--needed);
+}
+
+/* Rows an engine never touches fade once it's done, and come back as the loop fades out. */
+.reads-table .skip {
+  animation: reads-dim 300ms ease forwards;
+}
+
+.reads-table .skip.undim {
+  animation: reads-undim 400ms ease forwards;
+}
+
+.reads-table .skip.end {
+  animation: none;
+  opacity: 0.45;
+}
+
+/* What a search term matched. */
+.reads-table u {
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+}
+
+/* Out of view: nothing lit and no times yet, like the start of a loop. */
+.reads-wait .reads-table i,
+.reads-wait .reads-time {
+  visibility: hidden;
+}
+
+.reads-caption {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.reads-note {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@keyframes reads-read {
+  from {
+    background-color: var(--flash);
+  }
+  to {
+    background-color: var(--faint);
+  }
+}
+
+@keyframes reads-hit {
+  from {
+    background-color: var(--flash);
+  }
+  to {
+    background-color: var(--needed);
+  }
+}
+
+@keyframes reads-dim {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+@keyframes reads-undim {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes reads-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes reads-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 /* ---------- History page ---------- */
 
 .history {
@@ -953,6 +1233,21 @@ dialog::backdrop {
   .lanes {
     grid-template-columns: 84px 1fr 64px;
     column-gap: 10px;
+  }
+
+  .reads-table {
+    --cell-x: 4px;
+    padding: 4px 4px 6px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+
+  .reads-th {
+    font-size: 10px;
+  }
+
+  .reads-caption {
+    font-size: 13px;
   }
 }
 
