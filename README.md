@@ -268,7 +268,7 @@ npm run preview:demo
 
 Then open http://localhost:4173.
 
-**To put it on Vercel,** import the repository as a new project and deploy. [`vercel.json`](vercel.json) holds the settings: it builds in `app/` and serves `app/dist/demo`. Nothing else needs setting.
+**To put it on Vercel,** import the repository as a new project, set **Root Directory** to `app`, and deploy. [`app/vercel.json`](app/vercel.json) holds the rest: it builds the demo and serves `app/dist/demo`. Vercel only reads it from the Root Directory, so it must stay `app`.
 
 **To record it again,** for example after changing a query or the generator, start the stack with `docker compose up --build`, so it runs your current code, and run (Node 22.18 or newer; on Node 23, 23.6 or newer):
 
