@@ -126,8 +126,8 @@ export function App() {
       <header className="top">
         <Versus />
         <Nav route={route} />
+        {DemoNote && <DemoNote />}
       </header>
-      {DemoNote && <DemoNote />}
       <main className={`page page-${route}`}>
         {error && (
           <div className="banner bad">

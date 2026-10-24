@@ -253,7 +253,7 @@ This app doesn't need a login. To stop the prompts, run `brew uninstall docker-c
 
 - **Every query on every size was run once** on a real stack, and each run's progress was saved with its timing. Pressing Run replays it at the pace it happened. Generate and Delete replay their recorded progress too.
 - **The table rows are made in the browser** by the same seeded generator, so they are the rows the databases held. No table data is shipped: the recordings are about 190 KB, or 35 KB compressed.
-- **A line under the header says the results are recorded,** with the date and machine, and points here to run it yourself.
+- **A bubble at the top right says the results are recorded.** Hover over it or tap it for the date and how to run it yourself.
 
 The normal build doesn't include any of this.
 
