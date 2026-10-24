@@ -164,17 +164,57 @@ select {
   padding: 20px 24px 80px;
 }
 
-.nav {
-  width: fit-content;
-  margin: 0 auto;
+/* The engines on the left, the pages in the middle. The side columns are equal, so the
+   nav stays centred. */
+.top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav,
+.versus {
   display: flex;
   align-items: center;
-  gap: 2px;
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: 999px;
   padding: 4px;
   box-shadow: var(--shadow-sm), 0 8px 24px rgba(36, 34, 30, 0.05);
+}
+
+.nav {
+  gap: 2px;
+}
+
+.versus {
+  justify-self: start;
+}
+
+.versus-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.versus-side img {
+  flex: none;
+  display: block;
+}
+
+.versus-ch {
+  border-radius: 4px;
+}
+
+.versus-rule {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
 }
 
 .nav-link {
@@ -835,6 +875,31 @@ dialog::backdrop {
   margin-top: 22px;
 }
 
+/* ---------- narrower screens ---------- */
+
+/* The names no longer fit beside the centred nav: keep the logos. */
+@media (max-width: 880px) {
+  .versus-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* No room to centre the nav: logos on the left, nav on the right. */
+@media (max-width: 600px) {
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+}
+
 /* ---------- phones ---------- */
 
 @media (max-width: 480px) {
@@ -844,6 +909,10 @@ dialog::backdrop {
 
   .nav-link {
     padding: 0 11px;
+  }
+
+  .versus-side {
+    padding: 0 10px;
   }
 
   .page {

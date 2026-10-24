@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRoute, useStatus, type Route } from './hooks';
 import { addHistory, clearHistory, HISTORY_KEY, loadHistory, type HistoryEntry, type HistoryInfo } from './history';
 import { Nav } from './components/Nav';
+import { Versus } from './components/Versus';
 import { DatabasePage } from './pages/DatabasePage';
 import { RunPage } from './pages/RunPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -108,7 +109,10 @@ export function App() {
 
   return (
     <div className="app">
-      <Nav route={route} />
+      <header className="top">
+        <Versus />
+        <Nav route={route} />
+      </header>
       <main className={`page page-${route}`}>
         {error && (
           <div className="banner bad">
