@@ -97,7 +97,7 @@ ORDER BY month`,
     id: 'distinct-buyers-per-month',
     group: 'Distinct & percentiles',
     title: 'Distinct buyers per month in 2025',
-    why: 'COUNT(DISTINCT) is exact on both. Postgres sorts in a single process for it; ClickHouse uses parallel hash sets.',
+    why: 'COUNT(DISTINCT) is exact on both. Postgres sorts the rows for it; ClickHouse uses parallel hash sets.',
     expectedWinner: 'ch',
     sql: `SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, count(DISTINCT user_id) AS buyers
 FROM orders
