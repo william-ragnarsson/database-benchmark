@@ -5,7 +5,7 @@ A small website that runs the same SQL on Postgres and on ClickHouse and shows h
 Both databases hold the same generated data: realistic-looking users (names, emails, cities) and their orders. The data is generated on your machine when you press Generate, so nothing large is downloaded or stored in git. By default it takes about 165 MB, and one script removes everything again.
 
 - **Database.** Pick a size, press Generate, and page through each table's rows, 20 at a time. Delete removes the data again.
-- **Run.** Pick one of 13 queries and press Run: aggregations, time series, distinct counts and percentiles, joins, text search, and two lookups where Postgres wins. Each engine gets one warm-up run, then up to 5 timed runs (just 1 if the warm-up took over a second), taking turns. The page shows the median of each, how many times faster the winner was, and whether both returned the same rows.
+- **Run.** Pick one of 14 queries and press Run. Half are the heavy queries ClickHouse wins: aggregations, time series, distinct counts and percentiles, and a join over every order. The other half touch only a few rows, and Postgres wins them: lookups by id, the last 20 orders by id, a 5-minute time range, one customer's spend, and a text search that stops early. Each engine gets one warm-up run, then up to 5 timed runs (just 1 if the warm-up took over a second), taking turns. The page shows the median of each, how many times faster the winner was, and whether both returned the same rows.
 - **History.** Your last 50 runs, kept in this browser.
 
 Everything runs in containers on your own machine. Only the website is reachable, and only from your own machine (`127.0.0.1`).
@@ -107,23 +107,24 @@ These are the medians at Standard (1M orders, 100k users), with warm data:
 
 | Template | Postgres | ClickHouse | |
 |---|---:|---:|---|
-| Running monthly revenue | 188 ms | 13 ms | ClickHouse 14× faster |
-| Median & p90 price by category | 181 ms | 18 ms | ClickHouse 10× faster |
-| Busiest customer-days | 405 ms | 42 ms | ClickHouse 9.8× faster |
-| Distinct buyers per month in 2025 | 118 ms | 15 ms | ClickHouse 8.1× faster |
-| Top 10 customers by spend | 168 ms | 29 ms | ClickHouse 5.7× faster |
-| Daily orders & revenue, Mar–May 2025 | 19 ms | 7 ms | ClickHouse 2.7× faster |
-| Card share by country | 67 ms | 28 ms | ClickHouse 2.4× faster |
-| Revenue by category | 29 ms | 13 ms | ClickHouse 2.3× faster |
-| Revenue by country | 69 ms | 30 ms | ClickHouse 2.3× faster |
-| Users by signup year & plan | 9 ms | 6 ms | about the same |
-| Email + city search | 1.6 ms | 4.8 ms | Postgres 3.1× faster |
-| Order #242424 | 0.4 ms | 6 ms | Postgres 16× faster |
-| Customer 4242's last 20 orders | 0.4 ms | 8 ms | Postgres 18× faster |
+| Running monthly revenue | 193 ms | 15 ms | ClickHouse 13× faster |
+| Busiest customer-days | 396 ms | 38 ms | ClickHouse 10× faster |
+| Median & p90 price by category | 196 ms | 20 ms | ClickHouse 9.6× faster |
+| Distinct buyers per month in 2025 | 138 ms | 15 ms | ClickHouse 9.4× faster |
+| Revenue by country | 90 ms | 35 ms | ClickHouse 2.5× faster |
+| Daily orders & revenue, Mar–May 2025 | 20 ms | 8.8 ms | ClickHouse 2.3× faster |
+| Revenue by category | 33 ms | 15 ms | ClickHouse 2.2× faster |
+| Email + city search | 1.9 ms | 6.0 ms | Postgres 3.2× faster |
+| Orders in the last 5 minutes of 2025 | 0.6 ms | 4.9 ms | Postgres 8.4× faster |
+| User #99 | 0.4 ms | 4.9 ms | Postgres 12× faster |
+| Customer 4242's spend by category | 0.6 ms | 8.2 ms | Postgres 14× faster |
+| Order #242424 | 0.4 ms | 6.6 ms | Postgres 16× faster |
+| Customer 4242's last 20 orders | 0.6 ms | 10 ms | Postgres 17× faster |
+| Last 20 orders by id | 0.4 ms | 9.6 ms | Postgres 22× faster |
 
 - **ClickHouse wins scans and aggregations.** It reads only the columns a query needs, in compressed blocks, using all 4 threads.
-- **Postgres wins lookups.** It has a B-tree index on the lookup column, and its fixed cost per query is about 0.2 ms, against about 2.5 ms for ClickHouse.
-- **At this size most queries still finish in well under a second on both.** Pick Large to see the same gap at a size where you can feel it: heavy queries take Postgres 0.1–3 s and ClickHouse 15–130 ms.
+- **Postgres wins queries that touch only a few rows.** Its indexes take it straight to them (a B-tree for ids and customers, BRIN for a time range), and its fixed cost per query is about 0.2 ms, against about 3 ms for ClickHouse. ClickHouse can only skip ahead on its sort key (created_at for orders, id for users); for anything else it scans the column. That cuts both ways: sort the last 20 orders by created_at instead of id and the same rows come back, but ClickHouse wins, because Postgres has only a BRIN index on created_at. The text search is the exception: neither engine has an index on email or city, so both walk users in id order and stop early (Postgres at the 50th match, about 4,000 rows in; ClickHouse after two blocks of 8,192 rows), and Postgres's lower fixed cost wins it.
+- **At this size most queries still finish in well under a second on both.** Pick Large to see the same gap at a size where you can feel it: heavy queries take Postgres 0.1–2.8 s and ClickHouse 13–150 ms.
 
 ## How it measures
 
@@ -300,7 +301,7 @@ After a code change, rebuild just the website with `docker compose up --build -d
 |---|---|
 | `app/src/server/seed/` | data generator, seeding and size measurement |
 | `app/src/server/bench/` | the query guard, the run loop and the result comparison |
-| `app/src/shared/templates.ts` | the 13 templates, with Postgres and ClickHouse SQL |
+| `app/src/shared/templates.ts` | the 14 templates, with Postgres and ClickHouse SQL |
 | `app/src/client/` | the website: the Database, Run and History pages |
 | `app/src/client/demo/` | the static demo: replaying the recordings, and making rows in the browser |
 | `app/scripts/record-demo.ts` | records the static demo from a running stack |

@@ -34,7 +34,7 @@ const result = (templateId: string, pg: EngineResult, ch: EngineResult, winner: 
 };
 
 const BASELINE = { pg: 0.3, ch: 3 };
-const STANDARD: Data = { preset: 'standard', users: 100_000 };
+const STANDARD: Data = { preset: 'standard', users: 100_000, orders: 1_000_000 };
 
 // The cells of one row, or of one column, in the order they light.
 const row = (side: Side, r: number) => side.cells.filter((c) => c.r === r);
@@ -95,7 +95,7 @@ describe('SAMPLE_ROWS', () => {
     for (const preset of PRESETS) {
       for (const [id, scene] of Object.entries(SCENES)) {
         if (scene.kind === 'scan' && !scene.keep) continue;
-        const p = plan(scene, result(id, engine(10), engine(5), 'ch'), BASELINE, { preset: preset.id, users: preset.users });
+        const p = plan(scene, result(id, engine(10), engine(5), 'ch'), BASELINE, { preset: preset.id, users: preset.users, orders: preset.orders });
         const found = new Set([...p.pg.cells, ...p.ch.cells].filter((c) => c.hit !== null).map((c) => c.r));
         expect(found.size, `${preset.id} ${id}`).toBeGreaterThan(0);
         expect(found.size, `${preset.id} ${id}`).toBeLessThan(p.rows.length);
@@ -119,13 +119,13 @@ describe('plan', () => {
   });
 
   it('finishes a tie together', () => {
-    const p = plan(SCENES['users-by-signup-year'], result('users-by-signup-year', engine(5), engine(5.2), null), BASELINE, STANDARD);
+    const p = plan(SCENES['email-city-search'], result('email-city-search', engine(5), engine(5.2), null), BASELINE, STANDARD);
     expect(p.pg.d).toBe(SLOW_MS);
     expect(p.ch.d).toBe(SLOW_MS);
   });
 
   it('spends the start of the drawing on each engine’s fixed cost, at most 80%', () => {
-    const p = plan(SCENES['users-by-signup-year'], result('users-by-signup-year', engine(3), engine(3.5), null), BASELINE, STANDARD);
+    const p = plan(SCENES['user-by-id'], result('user-by-id', engine(3), engine(3.5), null), BASELINE, STANDARD);
     expect(p.pg.wait).toBeCloseTo(SLOW_MS * 0.1);
     expect(p.ch.wait).toBeCloseTo(SLOW_MS * 0.8);
     expect(Math.min(...p.ch.cells.map((c) => c.at))).toBe(Math.round(LEAD_MS + p.ch.wait));
@@ -185,12 +185,6 @@ describe('plan', () => {
       const category = row(p.ch, 0).find((c) => c.c === col('category'))!;
       expect(category.hit).toBe(category.at);
     });
-
-    it('starts on the small users table after ClickHouse’s start-up', () => {
-      const users = plan(SCENES['users-by-signup-year'], result('users-by-signup-year', engine(5), engine(5.2), null), BASELINE, STANDARD);
-      expect(users.pg.caption).toBe('A small table: every row, all 9 columns.');
-      expect(users.ch.caption).toBe('Spends about 3.0 ms starting up, then reads 3 of 9 columns.');
-    });
   });
 
   it('skips the rows outside a time range on both', () => {
@@ -201,6 +195,14 @@ describe('plan', () => {
     expect(p.ch.skipped).toEqual(p.pg.skipped);
     expect(p.pg.caption).toBe('Skips to Mar–May 2025, then reads whole rows.');
     expect(p.ch.caption).toBe('Skips to Mar–May 2025, then reads 3 of 8 columns.');
+  });
+
+  it('puts ClickHouse’s start-up first when Postgres wins a short range', () => {
+    const p = plan(SCENES['last-five-minutes'], result('last-five-minutes', engine(0.5), engine(4), 'pg'), BASELINE, STANDARD);
+    expect(rowsOf(p.pg)).toEqual([7]);
+    expect(rowsOf(p.ch)).toEqual([7]);
+    expect(p.pg.caption).toBe('Skips to the last 5 minutes of 2025, then reads whole rows.');
+    expect(p.ch.caption).toBe('Spends about 3.0 ms starting up, then skips to the last 5 minutes of 2025 and reads 4 of 8 columns.');
   });
 
   describe('a lookup', () => {
@@ -231,6 +233,36 @@ describe('plan', () => {
       expect(p.ch.cells.filter((c) => c.c !== 1)).toHaveLength(2 * 6);
       expect(p.pg.caption).toBe('Its index on user_id jumps straight to the rows.');
       expect(p.ch.caption).toBe('Sorted by time, not user_id, so it scans the user_id column.');
+    });
+
+    it('says ClickHouse reads one block when it’s sorted by the key', () => {
+      const p = plan(SCENES['user-by-id'], result('user-by-id', engine(0.2), engine(3), 'pg'), BASELINE, STANDARD);
+      expect(rowsOf(p.pg)).toEqual([4]);
+      expect(p.pg.caption).toBe('Its index on id jumps straight to the row.');
+      expect(p.ch.caption).toBe('Spends about 3.0 ms starting up; its index on id narrows it to one block of 8,192 rows.');
+    });
+  });
+
+  describe('a top N', () => {
+    const p = plan(SCENES['newest-orders'], result('newest-orders', engine(0.3), engine(12), 'pg'), BASELINE, STANDARD);
+
+    it('has Postgres read only the newest rows and ClickHouse every id first', () => {
+      expect(rowsOf(p.pg)).toEqual([7]);
+      expect(p.pg.skipped).toEqual([0, 1, 2, 3, 4, 5, 6]);
+      const scan = p.ch.cells.slice(0, 8);
+      expect(scan.every((c) => c.c === 0)).toBe(true);
+      expect(scan.filter((c) => c.hit !== null).map((c) => c.r)).toEqual([7]);
+      // The newest row's other selected columns, not payment_method.
+      const rest = p.ch.cells.slice(8);
+      expect(rest).toHaveLength(6);
+      expect(rest.every((c) => c.r === 7 && p.columns[c.c].name !== 'payment_method')).toBe(true);
+      expect(p.pg.caption).toBe('Walks its index on id from the end and stops after 20 rows.');
+      expect(p.ch.caption).toBe('Sorted by time, not id, so it reads every id to find the top 20.');
+    });
+
+    it('counts the newest rows from the size measured on', () => {
+      const light = plan(SCENES['newest-orders'], result('newest-orders', engine(0.3), engine(12), 'pg'), BASELINE, { preset: 'light', users: 50_000, orders: 250_000 });
+      expect(rowsOf(light.pg)).toEqual([7]);
     });
   });
 

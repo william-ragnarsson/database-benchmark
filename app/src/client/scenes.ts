@@ -83,9 +83,14 @@ type Scene = {
   | { kind: 'scan'; read: string[]; keep?: { column: string; value: string } }
   // A created_at range both engines skip to, from (inclusive) to (exclusive).
   | { kind: 'range'; read: string[]; from: string; to: string; label: string }
-  // A point lookup: Postgres's index finds the rows; ClickHouse scans the key column, then
-  // reads the other columns of the matches.
+  // A point lookup: Postgres's index finds the rows; ClickHouse scans the key column (or, if
+  // sorted by it, the one block of it that can hold the value), then reads the other columns of
+  // the matches.
   | { kind: 'lookup'; key: string; value: string; out: string[] }
+  // ORDER BY key DESC LIMIT, on a table whose ids run 1…N: Postgres walks its index from the
+  // end; ClickHouse, not sorted by key, reads the whole key column, then the out columns of the
+  // top rows.
+  | { kind: 'top'; key: string; limit: number; out: string[] }
   // users, ORDER BY id LIMIT: both walk ids in order until they have enough matches. Postgres
   // reads whole rows; ClickHouse reads its columns, then the out columns of the matches.
   | { kind: 'search'; read: string[]; out: string[]; terms: Term[]; limit: number }
@@ -93,6 +98,8 @@ type Scene = {
 
 const NOT_DRAWN_JOIN = 'Not drawn: both also match each order to its user.';
 const COMPLETED = { column: 'status', value: 'completed' };
+// A wide card has room for 7 of the 9 users columns, with the long emails.
+const USERS_WIDE = ['id', 'first_name', 'last_name', 'email', 'country', 'city', 'plan'];
 
 export const SCENES: Record<string, Scene> = {
   'revenue-by-category': {
@@ -109,13 +116,6 @@ export const SCENES: Record<string, Scene> = {
     narrow: ['user_id', 'created_at', 'category'],
     note: 'Not drawn: ClickHouse also groups the orders by customer and day faster.',
   },
-  'users-by-signup-year': {
-    kind: 'scan',
-    table: 'users',
-    read: ['signup_date', 'birth_year', 'plan'],
-    narrow: ['id', 'first_name', 'signup_date', 'birth_year', 'plan'],
-    wide: ['id', 'first_name', 'email', 'country', 'signup_date', 'birth_year', 'plan'],
-  },
   'daily-orders': {
     kind: 'range',
     table: 'orders',
@@ -124,6 +124,15 @@ export const SCENES: Record<string, Scene> = {
     to: '2025-06-01',
     label: 'Mar–May 2025',
     narrow: ['id', 'created_at', 'quantity', 'price_cents'],
+  },
+  'last-five-minutes': {
+    kind: 'range',
+    table: 'orders',
+    read: ['created_at', 'id', 'user_id', 'price_cents'],
+    from: '2025-12-31 23:55:00',
+    to: '2026-01-01',
+    label: 'the last 5 minutes of 2025',
+    narrow: ['id', 'user_id', 'created_at', 'price_cents'],
   },
   'running-monthly-revenue': {
     kind: 'scan',
@@ -134,7 +143,7 @@ export const SCENES: Record<string, Scene> = {
   'distinct-buyers-per-month': {
     kind: 'range',
     table: 'orders',
-    read: ['user_id', 'created_at'],
+    read: ['created_at', 'user_id'],
     from: '2025-01-01',
     to: '2026-01-01',
     label: '2025',
@@ -155,20 +164,14 @@ export const SCENES: Record<string, Scene> = {
     narrow: ['id', 'user_id', 'category', 'quantity', 'price_cents'],
     note: NOT_DRAWN_JOIN,
   },
-  'top-customers': {
-    kind: 'scan',
+  'customer-spend-by-category': {
+    kind: 'lookup',
     table: 'orders',
-    read: ['status', 'user_id', 'quantity', 'price_cents'],
-    keep: COMPLETED,
-    narrow: ['id', 'user_id', 'quantity', 'price_cents', 'status'],
-    note: 'Not drawn: Postgres then looks up the top 10 users by id; ClickHouse reads the users table to join them.',
-  },
-  'card-share-by-country': {
-    kind: 'scan',
-    table: 'orders',
-    read: ['user_id', 'payment_method'],
-    narrow: ['id', 'user_id', 'category', 'payment_method'],
-    note: NOT_DRAWN_JOIN,
+    key: 'user_id',
+    value: '4242',
+    out: ['category', 'quantity', 'price_cents'],
+    narrow: ['id', 'user_id', 'category', 'price_cents'],
+    note: 'Not drawn: both also look up customer 4242’s name in users, by id.',
   },
   'email-city-search': {
     kind: 'search',
@@ -181,7 +184,7 @@ export const SCENES: Record<string, Scene> = {
     ],
     limit: 50,
     narrow: ['id', 'email', 'city'],
-    wide: ['id', 'first_name', 'last_name', 'email', 'country', 'city', 'plan'],
+    wide: USERS_WIDE,
   },
   'order-by-id': {
     kind: 'lookup',
@@ -191,6 +194,15 @@ export const SCENES: Record<string, Scene> = {
     out: ['user_id', 'created_at', 'category', 'quantity', 'price_cents', 'status', 'payment_method'],
     narrow: ['id', 'user_id', 'category', 'price_cents', 'status'],
   },
+  'user-by-id': {
+    kind: 'lookup',
+    table: 'users',
+    key: 'id',
+    value: '99',
+    out: ['first_name', 'last_name', 'email', 'country', 'city', 'signup_date', 'birth_year', 'plan'],
+    narrow: ['id', 'first_name', 'email', 'city'],
+    wide: USERS_WIDE,
+  },
   'customer-last-orders': {
     kind: 'lookup',
     table: 'orders',
@@ -198,6 +210,15 @@ export const SCENES: Record<string, Scene> = {
     value: '4242',
     out: ['id', 'created_at', 'category', 'quantity', 'price_cents', 'status'],
     narrow: ['id', 'user_id', 'created_at', 'price_cents'],
+  },
+  'newest-orders': {
+    kind: 'top',
+    table: 'orders',
+    key: 'id',
+    limit: 20,
+    out: ['user_id', 'created_at', 'category', 'quantity', 'price_cents', 'status'],
+    narrow: ['id', 'user_id', 'created_at', 'price_cents'],
+    note: 'Sorted by created_at instead, the same 20 rows come back, but ClickHouse wins: that is its sort key, and Postgres has only a BRIN index there.',
   },
 };
 
@@ -260,7 +281,7 @@ function matchTerm(term: Term, value: string): [number, number] | null {
   return i < 0 ? null : [i, i + term.text.length];
 }
 
-function passes(scene: Scene, row: Row): boolean {
+function passes(scene: Scene, row: Row, data: Data): boolean {
   switch (scene.kind) {
     case 'scan':
       return !scene.keep || row[scene.keep.column] === scene.keep.value;
@@ -270,7 +291,15 @@ function passes(scene: Scene, row: Row): boolean {
       return row[scene.key] === scene.value;
     case 'search':
       return scene.terms.every((t) => matchTerm(t, row[t.column]) !== null);
+    case 'top':
+      return Number(row[scene.key]) > data[scene.table] - scene.limit;
   }
+}
+
+// ClickHouse's sort key starts with this column, so its sparse index can find a value in it.
+function chSortedBy(table: TableName, column: string): boolean {
+  const orderBy = TABLES.find((t) => t.name === table)!.chOrderBy;
+  return orderBy.replace(/[()]/g, '').split(',')[0].trim() === column;
 }
 
 function usedColumns(scene: Scene): string[] {
@@ -279,6 +308,7 @@ function usedColumns(scene: Scene): string[] {
     case 'range':
       return scene.read;
     case 'lookup':
+    case 'top':
       return [scene.key, ...scene.out];
     case 'search':
       return [...scene.read, ...scene.out];
@@ -296,6 +326,7 @@ function filterColumns(scene: Scene): Record<Engine, string[]> {
     case 'range':
       return { pg: [], ch: [] };
     case 'lookup':
+    case 'top':
       return { pg: [], ch: [scene.key] };
     case 'search': {
       const terms = scene.terms.map((t) => t.column);
@@ -307,7 +338,7 @@ function filterColumns(scene: Scene): Record<Engine, string[]> {
 // Every column the drawing has to show on its own, so its filtering can be seen.
 export function requiredColumns(scene: Scene): string[] {
   const { pg, ch } = filterColumns(scene);
-  const read = scene.kind === 'lookup' ? [scene.key] : scene.read;
+  const read = scene.kind === 'lookup' || scene.kind === 'top' ? [scene.key] : scene.read;
   return [...new Set([...read, ...pg, ...ch])];
 }
 
@@ -330,8 +361,8 @@ function timed(steps: Step[], d: number, wait: number): Omit<Cell, 'hit'>[] {
   );
 }
 
-// The data a result was measured on: which size, and how many users.
-export type Data = Pick<Meta, 'preset' | 'users'>;
+// The data a result was measured on: which size, and how many rows each table has.
+export type Data = Pick<Meta, 'preset' | 'users' | 'orders'>;
 
 export function plan(
   scene: Scene,
@@ -382,7 +413,7 @@ export function plan(
   ]);
 
   const every = sampleRows.map((_, r) => r);
-  const found = every.filter((r) => passes(scene, sampleRows[r]));
+  const found = every.filter((r) => passes(scene, sampleRows[r], data));
   const n = names.length;
   const startup = baselineMs ? `about ${fmtMs(baselineMs.ch)}` : 'a few ms';
   // One step per cell: Postgres goes row by row, ClickHouse column by column.
@@ -400,19 +431,21 @@ export function plan(
       const k = `${scene.read.length} of ${n} columns`;
       pg = byRow(every);
       ch = byColumn(every, scene.read);
-      caption =
-        scene.table === 'orders'
-          ? { pg: `Reads every row, all ${n} columns.`, ch: `Reads every row, but only ${k}, compressed.` }
-          : { pg: `A small table: every row, all ${n} columns.`, ch: `Spends ${startup} starting up, then reads ${k}.` };
+      caption = { pg: `Reads every row, all ${n} columns.`, ch: `Reads every row, but only ${k}, compressed.` };
       break;
     }
     case 'range': {
       const k = `${scene.read.length} of ${n} columns`;
       pg = byRow(found);
       ch = byColumn(found, scene.read);
+      // When Postgres wins a range, it's because there's so little to read that ClickHouse's
+      // start-up decides it.
       caption = {
         pg: `Skips to ${scene.label}, then reads whole rows.`,
-        ch: `Skips to ${scene.label}, then reads ${k}.`,
+        ch:
+          winner === 'pg'
+            ? `Spends ${startup} starting up, then skips to ${scene.label} and reads ${k}.`
+            : `Skips to ${scene.label}, then reads ${k}.`,
       };
       break;
     }
@@ -420,9 +453,22 @@ export function plan(
       pg = byRow(found);
       ch = [...byColumn(every, [scene.key]), ...rest(found, scene.out)];
       const plural = scene.key === 'id' ? 'row' : 'rows';
+      // Sorted by the key, ClickHouse reads only the block of 8,192 rows that can hold the value;
+      // the drawn rows all sit in that first block.
       caption = {
         pg: `Its index on ${scene.key} jumps straight to the ${plural}.`,
-        ch: `Sorted by time, not ${scene.key}, so it scans the ${scene.key} column.`,
+        ch: chSortedBy(scene.table, scene.key)
+          ? `Spends ${startup} starting up; its index on ${scene.key} narrows it to one block of 8,192 rows.`
+          : `Sorted by time, not ${scene.key}, so it scans the ${scene.key} column.`,
+      };
+      break;
+    }
+    case 'top': {
+      pg = byRow(found);
+      ch = [...byColumn(every, [scene.key]), ...rest(found, scene.out)];
+      caption = {
+        pg: `Walks its index on ${scene.key} from the end and stops after ${scene.limit} rows.`,
+        ch: `Sorted by time, not ${scene.key}, so it reads every ${scene.key} to find the top ${scene.limit}.`,
       };
       break;
     }
