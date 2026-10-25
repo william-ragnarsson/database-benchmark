@@ -3,6 +3,7 @@ import type { Route } from '../hooks';
 const LINKS: { route: Route; label: string }[] = [
   { route: 'data', label: 'Database' },
   { route: 'run', label: 'Run' },
+  { route: 'runs', label: 'Past runs' },
   { route: 'history', label: 'History' },
 ];
 

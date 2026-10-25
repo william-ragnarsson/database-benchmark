@@ -6,7 +6,8 @@ Both databases hold the same generated data: realistic-looking users (names, ema
 
 - **Database.** Pick a size, press Generate, and page through each table's rows, 20 at a time. Delete removes the data again.
 - **Run.** Pick one of 14 queries and press Run. Half are the heavy queries ClickHouse wins: aggregations, time series, distinct counts and percentiles, and a join over every order. The other half touch only a few rows, and Postgres wins them: lookups by id, the last 20 orders by id, a 5-minute time range, one customer's spend, and a text search that stops early. Each engine gets one warm-up run, then up to 5 timed runs (just 1 if the warm-up took over a second), taking turns. The page shows the median of each, how many times faster the winner was, and whether both returned the same rows.
-- **History.** Your last 50 runs, kept in this browser.
+- **Past runs.** Your last 50 runs, kept in this browser.
+- **History.** A short history of databases in eight exhibits, from IBM's IMS for Apollo to ClickHouse, with a small picture for each.
 
 Everything runs in containers on your own machine. Only the website is reachable, and only from your own machine (`127.0.0.1`).
 
@@ -302,7 +303,7 @@ After a code change, rebuild just the website with `docker compose up --build -d
 | `app/src/server/seed/` | data generator, seeding and size measurement |
 | `app/src/server/bench/` | the query guard, the run loop and the result comparison |
 | `app/src/shared/templates.ts` | the 14 templates, with Postgres and ClickHouse SQL |
-| `app/src/client/` | the website: the Database, Run and History pages |
+| `app/src/client/` | the website: the Database, Run, Past runs and History pages |
 | `app/src/client/demo/` | the static demo: replaying the recordings, and making rows in the browser |
 | `app/scripts/record-demo.ts` | records the static demo from a running stack |
 | `app/scripts/og-card.html` | the link preview image, `app/src/client/public/og.png`, and how to render it again |

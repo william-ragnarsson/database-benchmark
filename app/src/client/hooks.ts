@@ -65,15 +65,15 @@ export function writeStored(key: string, value: unknown): void {
   }
 }
 
-export type Route = 'data' | 'run' | 'history';
-const ROUTES: Route[] = ['data', 'run', 'history'];
+export type Route = 'data' | 'run' | 'runs' | 'history';
+const ROUTES: Route[] = ['data', 'run', 'runs', 'history'];
 
 function readRoute(): Route {
   const r = location.hash.replace(/^#\/?/, '');
   return ROUTES.includes(r as Route) ? (r as Route) : 'run';
 }
 
-// The page lives in the URL hash (#/data, #/run, #/history), so Back and reload work.
+// The page lives in the URL hash (#/data, #/run, #/runs, #/history), so Back and reload work.
 // With no hash, the app opens on Run.
 // Each page remembers how far down it was scrolled. The browser's own restore is off: on
 // Back it scrolls before hashchange fires, so the page being left would save the wrong spot.
