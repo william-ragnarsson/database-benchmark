@@ -10,6 +10,8 @@ export interface Template {
   expectedWinner: 'pg' | 'ch' | 'tie';
   // Same SQL on both engines, or one per engine.
   sql: string | { pg: string; ch: string };
+  // Why each engine gets its own SQL, shown under it on the Run page.
+  sqlNote?: string;
 }
 
 export const TEMPLATE_GROUPS = [
@@ -75,6 +77,7 @@ ORDER BY day`,
     title: 'Running monthly revenue',
     why: 'A window function over a full-scan aggregate. The aggregate dominates, and ClickHouse scans faster. Postgres gets a MATERIALIZED CTE: it guesses one month per distinct timestamp, and would otherwise sort every order (past its 100 MB temp-file limit at Large).',
     expectedWinner: 'ch',
+    sqlNote: 'The same steps, written two ways. Postgres gets a MATERIALIZED CTE, so it sums each month before the window runs instead of sorting every order. ClickHouse gets a plain subquery.',
     sql: {
       pg: `WITH t AS MATERIALIZED (
   SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, sum(quantity * price_cents) AS revenue_cents
@@ -111,6 +114,7 @@ ORDER BY 1`,
     title: 'Median & p90 price by category',
     why: 'Exact percentiles. Postgres percentile_cont sorts each group; ClickHouse quantileExactInclusive uses the same interpolation, in parallel.',
     expectedWinner: 'ch',
+    sqlNote: 'The two engines spell exact percentiles differently. Postgres’s percentile_cont and ClickHouse’s quantileExactInclusive interpolate the same way, so both return the same values.',
     sql: {
       pg: `SELECT category,
        percentile_cont(0.5) WITHIN GROUP (ORDER BY price_cents) AS p50,

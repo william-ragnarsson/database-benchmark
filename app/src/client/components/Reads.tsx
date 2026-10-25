@@ -86,7 +86,7 @@ export function Reads({ result, data, baselineMs, paused }: Props) {
         {!reduced && (
           <button
             type="button"
-            className="reads-toggle"
+            className="card-toggle"
             aria-label={`${TOGGLE[mode]} the animation`}
             aria-disabled={paused || undefined}
             onClick={() => {
