@@ -6,6 +6,7 @@ import { Versus } from './components/Versus';
 import { DatabasePage } from './pages/DatabasePage';
 import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
+import { HistoryPage } from './pages/HistoryPage';
 import { DemoNote as DemoNoteImpl } from './demo/DemoNote';
 import type { JobKind, RunResult, Status } from '../shared/types';
 
@@ -150,6 +151,9 @@ export function App() {
         </div>
         <div {...page('runs')}>
           <RunsPage entries={history} onClear={() => setHistory(clearHistory())} active={route === 'runs'} />
+        </div>
+        <div {...page('history')}>
+          <HistoryPage />
         </div>
       </main>
     </div>

@@ -20,6 +20,11 @@
   --ch: #a87a00;
   --ch-ink: #836000;
 
+  /* The History page's ways of storing data. Tables and columns are the two engines' colors. */
+  --tree: #1f8f6a;
+  --network: #c8553a;
+  --document: #b0507e;
+
   --good: #38704a;
   --bad: #8f2d1f;
   --bad-line: #e3c5bf;
@@ -221,6 +226,7 @@ select {
   font-size: 15px;
   color: var(--muted);
   text-decoration: none;
+  white-space: nowrap;
   padding: 0 18px;
   min-height: 44px;
   border-radius: 999px;
@@ -336,6 +342,10 @@ select {
 
 .page-runs {
   max-width: 1000px;
+}
+
+.page-history {
+  max-width: 600px;
 }
 
 /* ---------- buttons ---------- */
@@ -1194,6 +1204,420 @@ select {
   margin-top: 12px;
 }
 
+/* ---------- History page ---------- */
+
+.fam-tree {
+  --fam: var(--tree);
+}
+
+.fam-network {
+  --fam: var(--network);
+}
+
+.fam-relational {
+  --fam: var(--pg);
+}
+
+.fam-document {
+  --fam: var(--document);
+}
+
+.fam-column {
+  --fam: var(--ch);
+}
+
+.exhibit {
+  --fam-soft: color-mix(in srgb, var(--fam) 14%, var(--surface));
+}
+
+/* Written as one post: a single column of text, nothing boxed, about 75 characters a line. The
+   page's own wrapper, so the app's banners above it keep their size. */
+[data-page='history'] p {
+  font-size: 19px;
+  line-height: 1.6;
+}
+
+.page-history .history-title {
+  font-weight: 700;
+}
+
+/* Headings take focus only so screen readers land on them; they need no ring. */
+.history-title:focus,
+.exhibit h2:focus {
+  outline: none;
+}
+
+.page-history .history-sub {
+  margin-top: 10px;
+  font-size: 21px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+/* The map: a lane per way of storing data, on one shared line of years. */
+.map {
+  margin: 36px 0 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.map figcaption {
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.map-lane {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+}
+
+.map-name {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.map-track {
+  position: relative;
+  height: 32px;
+}
+
+.map-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--fill);
+}
+
+/* From the first exhibit on to today. */
+.map-line {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--fam);
+  border-radius: 1px;
+}
+
+/* A plain dot, with room around it to click. */
+.map-dot {
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+/* A ring of page color, so dots that touch stay apart. */
+.map-dot::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--fam);
+  box-shadow: 0 0 0 2px var(--bg);
+  transition: inset 0.12s ease;
+}
+
+/* The ring hugs the dot rather than the larger hit area. */
+.map-dot:focus-visible {
+  z-index: 2;
+  outline-offset: -2px;
+}
+
+.map-dot:focus-visible::before {
+  inset: 4px;
+}
+
+.map-dot::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--surface);
+  font: 500 12.5px/1.4 var(--sans);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+/* Near an edge: open away from it, so the tip stays on the page. */
+.map-dot-start::after {
+  left: -6px;
+  transform: none;
+}
+
+.map-dot-end::after {
+  left: auto;
+  right: -6px;
+  transform: none;
+}
+
+.map-dot:focus-visible::after {
+  opacity: 1;
+}
+
+/* Only where there is a pointer: a tapped dot on a phone would otherwise stay hovered. */
+@media (hover: hover) {
+  .map-dot:hover {
+    z-index: 2;
+  }
+
+  .map-dot:hover::before {
+    inset: 4px;
+  }
+
+  .map-dot:hover::after {
+    opacity: 1;
+  }
+}
+
+/* After Escape. Comes last, so it wins over the rules that show the tip. */
+.map-hush .map-dot::after {
+  opacity: 0;
+}
+
+/* High contrast drops background colors, so draw the dots and lines in the text color. */
+@media (forced-colors: active) {
+  .map-line,
+  .map-dot::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  .map-dot::before {
+    box-shadow: 0 0 0 2px Canvas;
+  }
+}
+
+.map-axis .map-track {
+  height: 22px;
+  border-top: 1px solid var(--rule);
+}
+
+.map-axis .map-track span {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An exhibit: its year and name, who made it, what it did, a picture, and what was still wrong. */
+.exhibit {
+  margin-top: 52px;
+  scroll-margin-top: 24px;
+}
+
+.exhibit h2 {
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.exhibit p + p {
+  margin-top: 16px;
+}
+
+.page-history .exhibit-maker {
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.exhibit-here {
+  white-space: nowrap;
+}
+
+.exhibit-here img {
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: -3px;
+}
+
+.exhibit-picture {
+  margin: 28px 0;
+}
+
+.exhibit-picture > :first-child {
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.exhibit-picture figcaption {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.page-history .closing {
+  margin-top: 52px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+}
+
+/* The pictures. Marks wear the exhibit's color, text stays in the text colors. */
+.dg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.dg text {
+  font-family: var(--sans);
+  font-size: 13px;
+  fill: var(--text);
+}
+
+.dg-box rect {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+
+.dg-box.on rect {
+  fill: var(--fam-soft);
+  stroke: var(--fam);
+  stroke-width: 1.5;
+}
+
+.dg-box.copy rect {
+  stroke-dasharray: 4 3;
+}
+
+.dg-link {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.dg-link.on {
+  stroke: var(--fam);
+  stroke-width: 2;
+}
+
+.dg .dg-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  fill: var(--muted);
+}
+
+.dg-head {
+  fill: var(--fill);
+  stroke: var(--rule);
+}
+
+.dg .dg-th {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-2);
+}
+
+.dg-cell rect {
+  fill: var(--surface);
+  stroke: var(--rule);
+}
+
+.dg-cell.on rect {
+  fill: var(--fam-soft);
+}
+
+.dg-bit {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+
+.dg-bit.on {
+  fill: var(--fam);
+  stroke: var(--fam);
+}
+
+.dg .dg-count {
+  font-size: 12px;
+  fill: var(--text-2);
+}
+
+.dg-code {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  background: var(--fill);
+  border-radius: 6px;
+  font: 13px/1.6 var(--mono);
+}
+
+.dg-query {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.dg-arrow {
+  color: var(--muted);
+}
+
+.dg-answer {
+  padding: 6px 12px;
+  border: 1.5px solid var(--fam);
+  border-radius: 6px;
+  background: var(--fam-soft);
+  font-size: 14px;
+}
+
+.dg-lamp {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dg-lamp li {
+  display: grid;
+  gap: 2px;
+  padding: 12px 4px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.dg-lamp li.on {
+  background: var(--fam-soft);
+  border: 1.5px solid var(--fam);
+}
+
+.dg-lamp b {
+  font-size: 18px;
+}
+
+.dg-lamp small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ---------- dialog ---------- */
 
 dialog {
@@ -1288,7 +1712,7 @@ dialog::backdrop {
   }
 
   .nav-link {
-    padding: 0 11px;
+    padding: 0 8px;
   }
 
   .versus-side {
@@ -1348,6 +1772,88 @@ dialog::backdrop {
 
   .reads-caption {
     font-size: 13px;
+  }
+
+  /* The lane's name above its track, so the years get the full width. */
+  .map-lane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Closer to its own line than to the one above, so it's clear which line it names. */
+  .map-name {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  .map-lane:first-child .map-name {
+    margin-top: 0;
+  }
+
+  .map-track {
+    height: 24px;
+  }
+
+  [data-page='history'] p {
+    font-size: 17px;
+  }
+
+  .page-history .history-sub {
+    font-size: 17px;
+  }
+
+  .exhibit {
+    margin-top: 44px;
+  }
+
+  .exhibit h2 {
+    font-size: 21px;
+  }
+
+  /* The answer goes under the query, so the SQL doesn't scroll sideways. Centred, like the other pictures. */
+  .dg-query {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 8px;
+  }
+
+  .dg-arrow {
+    transform: rotate(90deg);
+  }
+
+  /* So "web server" stays on one line at 320px. */
+  .dg-lamp li {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+
+  .dg-lamp small {
+    white-space: nowrap;
+  }
+}
+
+/* Below about 412px the pictures shrink to fit the column, so their text starts larger. */
+@media (max-width: 400px) {
+  .dg text {
+    font-size: 14px;
+  }
+
+  .dg .dg-th,
+  .dg .dg-title,
+  .dg .dg-count {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 360px) {
+  .dg text {
+    font-size: 15px;
+  }
+
+  .dg .dg-th,
+  .dg .dg-title,
+  .dg .dg-count {
+    font-size: 14px;
   }
 }
 
