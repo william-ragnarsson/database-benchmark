@@ -334,7 +334,7 @@ select {
   max-width: 880px;
 }
 
-.page-history {
+.page-runs {
   max-width: 1000px;
 }
 
@@ -1142,18 +1142,18 @@ select {
   }
 }
 
-/* ---------- History page ---------- */
+/* ---------- Past runs page ---------- */
 
-.history {
+.past-runs {
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
 }
 
-.history table {
+.past-runs table {
   font-size: 15px;
 }
 
-.history th {
+.past-runs th {
   font-size: 13.5px;
   font-weight: 600;
   text-align: left;
@@ -1162,33 +1162,33 @@ select {
   border-bottom: 1px solid var(--rule);
 }
 
-.history td {
+.past-runs td {
   padding: 0 16px;
   height: 52px;
   border-bottom: 1px solid var(--fill);
 }
 
-.history .when {
+.past-runs .when {
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 
-.history .ms {
+.past-runs .ms {
   text-align: right;
   font-family: var(--mono);
   font-size: 14px;
 }
 
-.history .faster {
+.past-runs .faster {
   text-align: right;
   font-weight: 600;
 }
 
-.history .faster .muted {
+.past-runs .faster .muted {
   font-weight: 400;
 }
 
-.history-foot {
+.past-runs-foot {
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;

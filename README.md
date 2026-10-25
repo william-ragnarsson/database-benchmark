@@ -6,7 +6,7 @@ Both databases hold the same generated data: realistic-looking users (names, ema
 
 - **Database.** Pick a size, press Generate, and page through each table's rows, 20 at a time. Delete removes the data again.
 - **Run.** Pick one of 13 queries and press Run: aggregations, time series, distinct counts and percentiles, joins, text search, and two lookups where Postgres wins. Each engine gets one warm-up run, then up to 5 timed runs (just 1 if the warm-up took over a second), taking turns. The page shows the median of each, how many times faster the winner was, and whether both returned the same rows.
-- **History.** Your last 50 runs, kept in this browser.
+- **Past runs.** Your last 50 runs, kept in this browser.
 
 Everything runs in containers on your own machine. Only the website is reachable, and only from your own machine (`127.0.0.1`).
 
@@ -301,7 +301,7 @@ After a code change, rebuild just the website with `docker compose up --build -d
 | `app/src/server/seed/` | data generator, seeding and size measurement |
 | `app/src/server/bench/` | the query guard, the run loop and the result comparison |
 | `app/src/shared/templates.ts` | the 13 templates, with Postgres and ClickHouse SQL |
-| `app/src/client/` | the website: the Database, Run and History pages |
+| `app/src/client/` | the website: the Database, Run and Past runs pages |
 | `app/src/client/demo/` | the static demo: replaying the recordings, and making rows in the browser |
 | `app/scripts/record-demo.ts` | records the static demo from a running stack |
 | `app/scripts/og-card.html` | the link preview image, `app/src/client/public/og.png`, and how to render it again |

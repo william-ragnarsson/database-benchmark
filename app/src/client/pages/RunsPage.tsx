@@ -17,8 +17,8 @@ interface Props {
   active: boolean;
 }
 
-// Page 3: every finished run, newest first. Kept in this browser only, the last 50.
-export function HistoryPage({ entries, onClear, active }: Props) {
+// Page 3, Past runs: every finished run, newest first. Kept in this browser only, the last 50.
+export function RunsPage({ entries, onClear, active }: Props) {
   const [confirming, setConfirming] = useState(false);
   const close = () => setConfirming(false);
 
@@ -30,7 +30,7 @@ export function HistoryPage({ entries, onClear, active }: Props) {
   return (
     <>
       <h1 className="visually-hidden" tabIndex={-1}>
-        History of runs
+        Past runs
       </h1>
 
       {entries.length === 0 ? (
@@ -43,7 +43,7 @@ export function HistoryPage({ entries, onClear, active }: Props) {
       ) : (
         <>
           {/* Focusable so the keyboard can scroll it sideways when the columns don't fit. */}
-          <div className="sheet history" role="region" aria-label="Run history" tabIndex={0}>
+          <div className="sheet past-runs" role="region" aria-label="Past runs" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -84,9 +84,9 @@ export function HistoryPage({ entries, onClear, active }: Props) {
               </tbody>
             </table>
           </div>
-          <div className="history-foot">
+          <div className="past-runs-foot">
             <button type="button" className="btn btn-danger btn-small" onClick={() => setConfirming(true)}>
-              Clear history…
+              Clear past runs…
             </button>
           </div>
         </>

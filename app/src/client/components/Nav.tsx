@@ -3,7 +3,7 @@ import type { Route } from '../hooks';
 const LINKS: { route: Route; label: string }[] = [
   { route: 'data', label: 'Database' },
   { route: 'run', label: 'Run' },
-  { route: 'history', label: 'History' },
+  { route: 'runs', label: 'Past runs' },
 ];
 
 export function Nav({ route }: { route: Route }) {
