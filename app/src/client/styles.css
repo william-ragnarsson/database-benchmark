@@ -872,6 +872,93 @@ select {
   margin-top: 8px;
 }
 
+/* A small text button at the right of a card's heading row: Hide/Show, Stop/Replay. */
+.card-toggle {
+  min-height: 36px;
+  margin: -8px -10px -8px 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.card-toggle:hover:not([aria-disabled='true']) {
+  background: var(--fill);
+  color: var(--text);
+}
+
+.card-toggle[aria-disabled='true'] {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* The selected query's SQL, under the bar. Hidden, it keeps only its heading row. */
+
+.sql {
+  margin-top: 16px;
+}
+
+.sql:has(.sql-body[hidden]) {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.sql-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sql-head h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.sql-head p {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.sql-head .card-toggle {
+  margin-left: auto;
+}
+
+.sql-engine + .sql-engine {
+  margin-top: 16px;
+}
+
+.sql-name {
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sql-code {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  background: var(--subtle);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  font: 13px/1.6 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* paddingLeft and textIndent are set per line, from its indent. */
+.sql-code span {
+  display: block;
+}
+
+.sql-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* What each engine reads: a few rows of the table, each cell lit as an engine reads it.
    Postgres goes row by row, ClickHouse column by column, the way each one stores them. */
 
@@ -886,28 +973,6 @@ select {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-2);
-}
-
-.reads-toggle {
-  min-height: 36px;
-  margin: -8px -10px -8px 0;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--text-2);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.reads-toggle:hover:not([aria-disabled='true']) {
-  background: var(--fill);
-  color: var(--text);
-}
-
-.reads-toggle[aria-disabled='true'] {
-  color: var(--muted);
-  cursor: default;
 }
 
 .reads-intro {

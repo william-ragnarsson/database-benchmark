@@ -3,12 +3,16 @@ import { api } from '../api';
 import { Reads } from '../components/Reads';
 import { ENGINE_LABEL, fmtMs, fmtRatio } from '../format';
 import type { HistoryInfo } from '../history';
+import { readStored, writeStored } from '../hooks';
 import type { Data } from '../scenes';
-import { TEMPLATES, templateSql } from '../../shared/templates';
+import { FETCH_ROWS } from '../../server/bench/guard';
+import { TEMPLATES, templateSql, type Template } from '../../shared/templates';
 import type { Engine, EngineResult, RunResult, Status } from '../../shared/types';
 
 const RUNS = 5;
 const ENGINES: Engine[] = ['pg', 'ch'];
+// Whether the SQL card is open, kept in this browser.
+const SQL_OPEN_KEY = 'pgch.sqlOpen';
 
 interface Props {
   status: Status;
@@ -115,6 +119,8 @@ export function RunPage({ status, blocked, running, setRunning, onFinished }: Pr
         </div>
       )}
 
+      <SqlView template={template} />
+
       <section className="card result" aria-labelledby="result-title" aria-live="polite" aria-busy={running}>
         {live ? (
           <LiveView title={template.title} live={live} />
@@ -147,6 +153,62 @@ function BlockedReason({ status, text }: { status: Status; text: string }) {
     );
   }
   return <p className="reason">{text}</p>;
+}
+
+// The selected query's SQL: one block when both engines run the same text, else one each.
+// Hidden, only the heading row is left, so the result sits closer to the Run button.
+function SqlView({ template }: { template: Template }) {
+  const [open, setOpen] = useState(() => readStored<unknown>(SQL_OPEN_KEY, true) !== false);
+  const sql = templateSql(template);
+  const same = typeof template.sql === 'string';
+  const toggle = () => {
+    setOpen(!open);
+    writeStored(SQL_OPEN_KEY, !open);
+  };
+  return (
+    <section className="card sql" aria-labelledby="sql-title">
+      <div className="sql-head">
+        <h2 id="sql-title">SQL</h2>
+        <p>{same ? 'Same on both engines' : 'Different on each engine'}</p>
+        <button type="button" className="card-toggle" aria-expanded={open} aria-controls="sql-body" onClick={toggle}>
+          {open ? 'Hide' : 'Show'}
+        </button>
+      </div>
+      <div className="sql-body" id="sql-body" hidden={!open}>
+        {same ? (
+          <SqlCode sql={sql.pg} />
+        ) : (
+          ENGINES.map((e) => (
+            <div key={e} className="sql-engine">
+              <p className={`sql-name ${e}-ink`}>{ENGINE_LABEL[e]}</p>
+              <SqlCode sql={sql[e]} />
+            </div>
+          ))
+        )}
+        {template.sqlNote && <p className="sql-note">{template.sqlNote}</p>}
+        <p className="sql-note">
+          Each engine runs it wrapped in <code>SELECT * FROM (…) q LIMIT {FETCH_ROWS}</code>, so neither sends back
+          more than {FETCH_ROWS} rows.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// One block per line, so a line too long for the card wraps under its own start, indented.
+function SqlCode({ sql }: { sql: string }) {
+  return (
+    <pre className="sql-code">
+      {sql.split('\n').map((line, i) => {
+        const hang = `${line.length - line.trimStart().length + 4}ch`;
+        return (
+          <span key={i} style={{ paddingLeft: hang, textIndent: `-${hang}` }}>
+            {line}
+          </span>
+        );
+      })}
+    </pre>
+  );
 }
 
 function LiveView({ title, live }: { title: string; live: Live }) {

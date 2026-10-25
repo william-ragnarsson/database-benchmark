@@ -7,9 +7,21 @@
     "pg": "SELECT user_id, CAST(created_at AS DATE) AS day, count(*) AS orders\nFROM orders\nGROUP BY user_id, day\nORDER BY orders DESC, user_id, day\nLIMIT 20",
     "ch": "SELECT user_id, CAST(created_at AS DATE) AS day, count(*) AS orders\nFROM orders\nGROUP BY user_id, day\nORDER BY orders DESC, user_id, day\nLIMIT 20"
   },
-  "users-by-signup-year": {
-    "pg": "SELECT extract(year FROM signup_date) AS yr, plan, count(*) AS users, avg(2026 - birth_year) AS avg_age\nFROM users\nGROUP BY yr, plan\nORDER BY yr, plan",
-    "ch": "SELECT extract(year FROM signup_date) AS yr, plan, count(*) AS users, avg(2026 - birth_year) AS avg_age\nFROM users\nGROUP BY yr, plan\nORDER BY yr, plan"
+  "order-by-id": {
+    "pg": "SELECT id, user_id, created_at, category, quantity, price_cents, status, payment_method\nFROM orders\nWHERE id = 242424",
+    "ch": "SELECT id, user_id, created_at, category, quantity, price_cents, status, payment_method\nFROM orders\nWHERE id = 242424"
+  },
+  "user-by-id": {
+    "pg": "SELECT id, first_name, last_name, email, country, city, signup_date, birth_year, plan\nFROM users\nWHERE id = 99",
+    "ch": "SELECT id, first_name, last_name, email, country, city, signup_date, birth_year, plan\nFROM users\nWHERE id = 99"
+  },
+  "customer-last-orders": {
+    "pg": "SELECT id, created_at, category, quantity, price_cents, status\nFROM orders\nWHERE user_id = 4242\nORDER BY created_at DESC, id DESC\nLIMIT 20",
+    "ch": "SELECT id, created_at, category, quantity, price_cents, status\nFROM orders\nWHERE user_id = 4242\nORDER BY created_at DESC, id DESC\nLIMIT 20"
+  },
+  "newest-orders": {
+    "pg": "SELECT id, user_id, created_at, category, quantity, price_cents, status\nFROM orders\nORDER BY id DESC\nLIMIT 20",
+    "ch": "SELECT id, user_id, created_at, category, quantity, price_cents, status\nFROM orders\nORDER BY id DESC\nLIMIT 20"
   },
   "daily-orders": {
     "pg": "SELECT CAST(created_at AS DATE) AS day, count(*) AS orders, sum(quantity * price_cents) AS revenue_cents\nFROM orders\nWHERE created_at >= '2025-03-01' AND created_at < '2025-06-01'\nGROUP BY day\nORDER BY day",
@@ -19,6 +31,18 @@
     "pg": "WITH t AS MATERIALIZED (\n  SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, sum(quantity * price_cents) AS revenue_cents\n  FROM orders\n  GROUP BY 1\n)\nSELECT month, revenue_cents, sum(revenue_cents) OVER (ORDER BY month) AS running_cents\nFROM t\nORDER BY month",
     "ch": "SELECT month, revenue_cents, sum(revenue_cents) OVER (ORDER BY month) AS running_cents\nFROM (\n  SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, sum(quantity * price_cents) AS revenue_cents\n  FROM orders\n  GROUP BY 1\n) t\nORDER BY month"
   },
+  "last-five-minutes": {
+    "pg": "SELECT id, user_id, created_at, price_cents\nFROM orders\nWHERE created_at >= '2025-12-31 23:55:00' AND created_at < '2026-01-01'\nORDER BY created_at, id",
+    "ch": "SELECT id, user_id, created_at, price_cents\nFROM orders\nWHERE created_at >= '2025-12-31 23:55:00' AND created_at < '2026-01-01'\nORDER BY created_at, id"
+  },
+  "revenue-by-country": {
+    "pg": "SELECT u.country, count(*) AS orders, sum(o.quantity * o.price_cents) AS revenue_cents\nFROM orders o\nJOIN users u ON u.id = o.user_id\nGROUP BY u.country\nORDER BY revenue_cents DESC, u.country\nLIMIT 20",
+    "ch": "SELECT u.country, count(*) AS orders, sum(o.quantity * o.price_cents) AS revenue_cents\nFROM orders o\nJOIN users u ON u.id = o.user_id\nGROUP BY u.country\nORDER BY revenue_cents DESC, u.country\nLIMIT 20"
+  },
+  "customer-spend-by-category": {
+    "pg": "SELECT u.first_name, u.last_name, o.category, count(*) AS orders, sum(o.quantity * o.price_cents) AS spent_cents\nFROM users u\nJOIN orders o ON o.user_id = u.id\nWHERE u.id = 4242\nGROUP BY u.first_name, u.last_name, o.category\nORDER BY spent_cents DESC, o.category",
+    "ch": "SELECT u.first_name, u.last_name, o.category, count(*) AS orders, sum(o.quantity * o.price_cents) AS spent_cents\nFROM users u\nJOIN orders o ON o.user_id = u.id\nWHERE u.id = 4242\nGROUP BY u.first_name, u.last_name, o.category\nORDER BY spent_cents DESC, o.category"
+  },
   "distinct-buyers-per-month": {
     "pg": "SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, count(DISTINCT user_id) AS buyers\nFROM orders\nWHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'\nGROUP BY 1\nORDER BY 1",
     "ch": "SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, count(DISTINCT user_id) AS buyers\nFROM orders\nWHERE created_at >= '2025-01-01' AND created_at < '2026-01-01'\nGROUP BY 1\nORDER BY 1"
@@ -27,28 +51,8 @@
     "pg": "SELECT category,\n       percentile_cont(0.5) WITHIN GROUP (ORDER BY price_cents) AS p50,\n       percentile_cont(0.9) WITHIN GROUP (ORDER BY price_cents) AS p90\nFROM orders\nGROUP BY category\nORDER BY category",
     "ch": "SELECT category,\n       quantileExactInclusive(0.5)(price_cents) AS p50,\n       quantileExactInclusive(0.9)(price_cents) AS p90\nFROM orders\nGROUP BY category\nORDER BY category"
   },
-  "revenue-by-country": {
-    "pg": "SELECT u.country, count(*) AS orders, sum(o.quantity * o.price_cents) AS revenue_cents\nFROM orders o\nJOIN users u ON u.id = o.user_id\nGROUP BY u.country\nORDER BY revenue_cents DESC, u.country\nLIMIT 20",
-    "ch": "SELECT u.country, count(*) AS orders, sum(o.quantity * o.price_cents) AS revenue_cents\nFROM orders o\nJOIN users u ON u.id = o.user_id\nGROUP BY u.country\nORDER BY revenue_cents DESC, u.country\nLIMIT 20"
-  },
-  "top-customers": {
-    "pg": "WITH t AS (\n  SELECT user_id, sum(quantity * price_cents) AS spent_cents, count(*) AS orders\n  FROM orders\n  WHERE status = 'completed'\n  GROUP BY user_id\n  ORDER BY spent_cents DESC, user_id\n  LIMIT 10\n)\nSELECT u.id, u.first_name, u.last_name, u.country, t.spent_cents, t.orders\nFROM t\nJOIN users u ON u.id = t.user_id\nORDER BY t.spent_cents DESC, u.id",
-    "ch": "WITH t AS (\n  SELECT user_id, sum(quantity * price_cents) AS spent_cents, count(*) AS orders\n  FROM orders\n  WHERE status = 'completed'\n  GROUP BY user_id\n  ORDER BY spent_cents DESC, user_id\n  LIMIT 10\n)\nSELECT u.id, u.first_name, u.last_name, u.country, t.spent_cents, t.orders\nFROM t\nJOIN users u ON u.id = t.user_id\nORDER BY t.spent_cents DESC, u.id"
-  },
-  "card-share-by-country": {
-    "pg": "SELECT u.country, count(*) AS orders,\n       100.0 * sum(CASE WHEN o.payment_method = 'card' THEN 1 ELSE 0 END) / count(*) AS card_pct\nFROM orders o\nJOIN users u ON u.id = o.user_id\nGROUP BY u.country\nHAVING count(*) >= 1000\nORDER BY card_pct DESC, u.country",
-    "ch": "SELECT u.country, count(*) AS orders,\n       100.0 * sum(CASE WHEN o.payment_method = 'card' THEN 1 ELSE 0 END) / count(*) AS card_pct\nFROM orders o\nJOIN users u ON u.id = o.user_id\nGROUP BY u.country\nHAVING count(*) >= 1000\nORDER BY card_pct DESC, u.country"
-  },
   "email-city-search": {
     "pg": "SELECT id, first_name, last_name, email, city\nFROM users\nWHERE email ILIKE '%son%' AND city ILIKE 'san%'\nORDER BY id\nLIMIT 50",
     "ch": "SELECT id, first_name, last_name, email, city\nFROM users\nWHERE email ILIKE '%son%' AND city ILIKE 'san%'\nORDER BY id\nLIMIT 50"
-  },
-  "order-by-id": {
-    "pg": "SELECT id, user_id, created_at, category, quantity, price_cents, status, payment_method\nFROM orders\nWHERE id = 242424",
-    "ch": "SELECT id, user_id, created_at, category, quantity, price_cents, status, payment_method\nFROM orders\nWHERE id = 242424"
-  },
-  "customer-last-orders": {
-    "pg": "SELECT id, created_at, category, quantity, price_cents, status\nFROM orders\nWHERE user_id = 4242\nORDER BY created_at DESC, id DESC\nLIMIT 20",
-    "ch": "SELECT id, created_at, category, quantity, price_cents, status\nFROM orders\nWHERE user_id = 4242\nORDER BY created_at DESC, id DESC\nLIMIT 20"
   }
 }

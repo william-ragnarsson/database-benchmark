@@ -10,15 +10,17 @@ export interface Template {
   expectedWinner: 'pg' | 'ch' | 'tie';
   // Same SQL on both engines, or one per engine.
   sql: string | { pg: string; ch: string };
+  // Why each engine gets its own SQL, shown under it on the Run page.
+  sqlNote?: string;
 }
 
 export const TEMPLATE_GROUPS = [
   'Aggregations',
+  'Index lookups',
   'Time series',
-  'Distinct & percentiles',
   'Joins',
+  'Distinct & percentiles',
   'Text search',
-  'Where Postgres wins',
 ] as const;
 
 export const TEMPLATES: Template[] = [
@@ -47,15 +49,47 @@ ORDER BY orders DESC, user_id, day
 LIMIT 20`,
   },
   {
-    id: 'users-by-signup-year',
-    group: 'Aggregations',
-    title: 'Users by signup year & plan',
-    why: 'A small table (users) with a cheap aggregate. Both engines finish in a few milliseconds, so it is close to a tie.',
-    expectedWinner: 'tie',
-    sql: `SELECT extract(year FROM signup_date) AS yr, plan, count(*) AS users, avg(2026 - birth_year) AS avg_age
+    id: 'order-by-id',
+    group: 'Index lookups',
+    title: 'Order #242424',
+    why: 'A point lookup. Postgres walks its B-tree and reads one page; ClickHouse has to scan the id column, because its data is sorted by created_at, not id. Postgres also has a lower fixed cost per query.',
+    expectedWinner: 'pg',
+    sql: `SELECT id, user_id, created_at, category, quantity, price_cents, status, payment_method
+FROM orders
+WHERE id = 242424`,
+  },
+  {
+    id: 'user-by-id',
+    group: 'Index lookups',
+    title: 'User #99',
+    why: 'A point lookup ClickHouse’s index can serve too: users are sorted by id, so it reads one block of 8,192 rows. Postgres reads one page, and its fixed cost per query is far lower, so it still wins.',
+    expectedWinner: 'pg',
+    sql: `SELECT id, first_name, last_name, email, country, city, signup_date, birth_year, plan
 FROM users
-GROUP BY yr, plan
-ORDER BY yr, plan`,
+WHERE id = 99`,
+  },
+  {
+    id: 'customer-last-orders',
+    group: 'Index lookups',
+    title: 'Customer 4242’s last 20 orders',
+    why: 'Postgres uses its B-tree on user_id and touches a handful of rows; ClickHouse scans the user_id column, because user_id is not its sort key.',
+    expectedWinner: 'pg',
+    sql: `SELECT id, created_at, category, quantity, price_cents, status
+FROM orders
+WHERE user_id = 4242
+ORDER BY created_at DESC, id DESC
+LIMIT 20`,
+  },
+  {
+    id: 'newest-orders',
+    group: 'Index lookups',
+    title: 'Last 20 orders by id',
+    why: 'ORDER BY id with a LIMIT. Postgres walks its id index from the end and stops after 20 rows; ClickHouse is sorted by created_at, not id, so it reads every id to find the top 20. Sort by created_at instead and the same 20 rows come back, but ClickHouse wins: that is its sort key, and Postgres has only a BRIN index there, so it reads every row.',
+    expectedWinner: 'pg',
+    sql: `SELECT id, user_id, created_at, category, quantity, price_cents, status
+FROM orders
+ORDER BY id DESC
+LIMIT 20`,
   },
   {
     id: 'daily-orders',
@@ -75,6 +109,7 @@ ORDER BY day`,
     title: 'Running monthly revenue',
     why: 'A window function over a full-scan aggregate. The aggregate dominates, and ClickHouse scans faster. Postgres gets a MATERIALIZED CTE: it guesses one month per distinct timestamp, and would otherwise sort every order (past its 100 MB temp-file limit at Large).',
     expectedWinner: 'ch',
+    sqlNote: 'The same steps, written two ways. Postgres gets a MATERIALIZED CTE, so it sums each month before the window runs instead of sorting every order. ClickHouse gets a plain subquery.',
     sql: {
       pg: `WITH t AS MATERIALIZED (
   SELECT CAST(date_trunc('month', created_at) AS DATE) AS month, sum(quantity * price_cents) AS revenue_cents
@@ -94,6 +129,43 @@ ORDER BY month`,
     },
   },
   {
+    id: 'last-five-minutes',
+    group: 'Time series',
+    title: 'Orders in the last 5 minutes of 2025',
+    why: 'A very short time range. Both skip straight to it: Postgres with its BRIN index, ClickHouse with its primary index on created_at. With only a few rows left to read, ClickHouse’s fixed cost per query decides it.',
+    expectedWinner: 'pg',
+    sql: `SELECT id, user_id, created_at, price_cents
+FROM orders
+WHERE created_at >= '2025-12-31 23:55:00' AND created_at < '2026-01-01'
+ORDER BY created_at, id`,
+  },
+  {
+    id: 'revenue-by-country',
+    group: 'Joins',
+    title: 'Revenue by country',
+    why: 'A JOIN of every order to its user, then GROUP BY. ClickHouse builds the hash table once and probes it in parallel.',
+    expectedWinner: 'ch',
+    sql: `SELECT u.country, count(*) AS orders, sum(o.quantity * o.price_cents) AS revenue_cents
+FROM orders o
+JOIN users u ON u.id = o.user_id
+GROUP BY u.country
+ORDER BY revenue_cents DESC, u.country
+LIMIT 20`,
+  },
+  {
+    id: 'customer-spend-by-category',
+    group: 'Joins',
+    title: 'Customer 4242’s spend by category',
+    why: 'A JOIN for one customer. Postgres finds them by id, then their orders through its user_id index: a handful of rows. ClickHouse scans the whole user_id column of orders, because orders are sorted by created_at.',
+    expectedWinner: 'pg',
+    sql: `SELECT u.first_name, u.last_name, o.category, count(*) AS orders, sum(o.quantity * o.price_cents) AS spent_cents
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE u.id = 4242
+GROUP BY u.first_name, u.last_name, o.category
+ORDER BY spent_cents DESC, o.category`,
+  },
+  {
     id: 'distinct-buyers-per-month',
     group: 'Distinct & percentiles',
     title: 'Distinct buyers per month in 2025',
@@ -111,6 +183,7 @@ ORDER BY 1`,
     title: 'Median & p90 price by category',
     why: 'Exact percentiles. Postgres percentile_cont sorts each group; ClickHouse quantileExactInclusive uses the same interpolation, in parallel.',
     expectedWinner: 'ch',
+    sqlNote: 'The two engines spell exact percentiles differently. Postgres’s percentile_cont and ClickHouse’s quantileExactInclusive interpolate the same way, so both return the same values.',
     sql: {
       pg: `SELECT category,
        percentile_cont(0.5) WITHIN GROUP (ORDER BY price_cents) AS p50,
@@ -127,84 +200,16 @@ ORDER BY category`,
     },
   },
   {
-    id: 'revenue-by-country',
-    group: 'Joins',
-    title: 'Revenue by country',
-    why: 'A JOIN of every order to its user, then GROUP BY. ClickHouse builds the hash table once and probes it in parallel.',
-    expectedWinner: 'ch',
-    sql: `SELECT u.country, count(*) AS orders, sum(o.quantity * o.price_cents) AS revenue_cents
-FROM orders o
-JOIN users u ON u.id = o.user_id
-GROUP BY u.country
-ORDER BY revenue_cents DESC, u.country
-LIMIT 20`,
-  },
-  {
-    id: 'top-customers',
-    group: 'Joins',
-    title: 'Top 10 customers by spend',
-    why: 'Aggregate first, then join only 10 rows. The aggregate is the heavy part.',
-    expectedWinner: 'ch',
-    sql: `WITH t AS (
-  SELECT user_id, sum(quantity * price_cents) AS spent_cents, count(*) AS orders
-  FROM orders
-  WHERE status = 'completed'
-  GROUP BY user_id
-  ORDER BY spent_cents DESC, user_id
-  LIMIT 10
-)
-SELECT u.id, u.first_name, u.last_name, u.country, t.spent_cents, t.orders
-FROM t
-JOIN users u ON u.id = t.user_id
-ORDER BY t.spent_cents DESC, u.id`,
-  },
-  {
-    id: 'card-share-by-country',
-    group: 'Joins',
-    title: 'Card share by country',
-    why: 'CASE + HAVING over a JOIN. Same shape as revenue by country, with more work per row.',
-    expectedWinner: 'ch',
-    sql: `SELECT u.country, count(*) AS orders,
-       100.0 * sum(CASE WHEN o.payment_method = 'card' THEN 1 ELSE 0 END) / count(*) AS card_pct
-FROM orders o
-JOIN users u ON u.id = o.user_id
-GROUP BY u.country
-HAVING count(*) >= 1000
-ORDER BY card_pct DESC, u.country`,
-  },
-  {
     id: 'email-city-search',
     group: 'Text search',
     title: 'Email + city search',
-    why: 'ILIKE over the users table. Neither engine has an index for it and the table is small, so both take a few ms. ClickHouse’s ~3–5 ms fixed cost per query usually puts Postgres slightly ahead.',
-    expectedWinner: 'tie',
+    why: 'ILIKE over the users table. Neither engine has an index for it, and a B-tree couldn’t serve a leading % anyway. Both walk users in id order and stop early: Postgres at the 50th match, about 4,000 rows in; ClickHouse after its first two blocks of 8,192 rows. With so little to read, ClickHouse’s fixed cost per query is about half its time.',
+    expectedWinner: 'pg',
     sql: `SELECT id, first_name, last_name, email, city
 FROM users
 WHERE email ILIKE '%son%' AND city ILIKE 'san%'
 ORDER BY id
 LIMIT 50`,
-  },
-  {
-    id: 'order-by-id',
-    group: 'Where Postgres wins',
-    title: 'Order #242424',
-    why: 'A point lookup. Postgres walks its B-tree and reads one page; ClickHouse has to scan the id column, because its data is sorted by created_at, not id. Postgres also has a lower fixed cost per query.',
-    expectedWinner: 'pg',
-    sql: `SELECT id, user_id, created_at, category, quantity, price_cents, status, payment_method
-FROM orders
-WHERE id = 242424`,
-  },
-  {
-    id: 'customer-last-orders',
-    group: 'Where Postgres wins',
-    title: 'Customer 4242’s last 20 orders',
-    why: 'Postgres uses its B-tree on user_id and touches a handful of rows; ClickHouse scans the user_id column, because user_id is not its sort key.',
-    expectedWinner: 'pg',
-    sql: `SELECT id, created_at, category, quantity, price_cents, status
-FROM orders
-WHERE user_id = 4242
-ORDER BY created_at DESC, id DESC
-LIMIT 20`,
   },
 ];
 
