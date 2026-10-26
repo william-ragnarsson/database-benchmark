@@ -132,7 +132,7 @@ export function HistoryPage() {
       <h1 className="headline history-title" id="history-title" tabIndex={-1}>
         A short history of databases
       </h1>
-      <p className="history-sub">Eight databases and data models, oldest first. Each one fixed a problem with the one before it.</p>
+      <p className="history-sub">Here’s a short history on databases. I find this useful to get a better understanding on how databases have evolved and why. I encourage you to research more yourself! :)</p>
 
       <Overview />
 
